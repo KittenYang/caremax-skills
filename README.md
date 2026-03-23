@@ -11,18 +11,18 @@ The skills teach agents how to interact with CareMax Health API: upload medical 
 ### npx skills (recommended)
 
 ```bash
-npx skills add https://github.com/nicepkg/caremax-skills
+npx skills add https://github.com/KittenYang/caremax-skills
 ```
 
 ### Claude Code
 
 ```bash
-/plugin marketplace add nicepkg/caremax-skills
+/plugin marketplace add KittenYang/caremax-skills
 ```
 
 ### Cursor
 
-Settings > Rules > Add Remote Rule (GitHub) > `nicepkg/caremax-skills`
+Settings > Rules > Add Remote Rule (GitHub) > `KittenYang/caremax-skills`
 
 ### Manual
 
