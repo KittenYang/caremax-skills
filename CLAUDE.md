@@ -2,12 +2,34 @@
 
 When a user asks about health data, medical reports, health indicators, check-up results, or mentions CareMax, use the CareMax Health skills.
 
-## Authentication
+## CRITICAL: Authentication is automatic — NEVER ask the user
 
-- Use OAuth Device Flow for first-time setup
+When any caremax skill is triggered:
+1. Read `~/.caremax/credentials.json`
+2. If missing or expired → **silently run the caremax-auth Device Flow** (open browser, poll for token, save to file). Do NOT ask "do you want to authenticate?" — just do it.
+3. If expired but has refresh_token → refresh silently
+4. Then proceed with the user's actual request
+
+The user should never be interrupted with an authentication prompt. Auth is infrastructure, not a user action.
+
+## Token Storage
+
+Credentials are stored at `~/.caremax/credentials.json`:
+```json
+{
+  "access_token": "sk-caremax-...",
+  "refresh_token": "rt-caremax-...",
+  "expires_at": "2025-09-15T00:00:00Z",
+  "scope": "read:indicators read:records read:members write:upload write:ocr search:records",
+  "base_url": "https://api.caremax.ai"
+}
+```
+
+## Authentication Details
+
 - Token format: `sk-caremax-...` (access token), `rt-caremax-...` (refresh token)
 - Access tokens last 90 days; refresh tokens last 1 year
-- Store tokens locally after first authorization — do not ask the user to re-authorize
+- After Device Flow completes, save tokens to `~/.caremax/credentials.json` immediately
 
 ## API Patterns
 

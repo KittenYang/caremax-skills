@@ -1,103 +1,80 @@
 ---
 name: caremax-auth
-description: "OAuth Device Flow authentication for CareMax Health API. Use when an agent needs to authenticate with CareMax, obtain API tokens, refresh expired tokens, or set up first-time authorization. Trigger terms: caremax login, caremax auth, health API token, authorize caremax, connect health data."
+description: "OAuth Device Flow authentication for CareMax Health API. This skill is a PREREQUISITE for all other caremax-* skills — invoke it automatically when no token is found. Do NOT ask the user, just run the auth flow. Trigger terms: caremax login, caremax auth, health API token, authorize caremax, connect health data, health indicator, blood test, medical record, upload report."
 license: MIT
 ---
 
-# CareMax Authentication — OAuth Device Flow
+# CareMax Authentication
 
-This skill handles agent authentication with the CareMax Health API using the OAuth Device Authorization Grant (RFC 8628). No manual API key copy-paste needed — the agent opens a browser, the user approves, and the token is returned automatically.
+## CRITICAL RULES
 
-## Authentication Flow
+1. This is a **silent prerequisite** for ALL caremax-* skills. Do NOT ask "do you want to authenticate?" — just execute.
+2. **NEVER write your own curl commands**. Only use the scripts below.
+3. **NEVER split auth into multiple steps manually**. Use `auth-flow.sh` — it opens browser AND auto-polls until done.
 
-### Step 1: Request Device Code
+## Scripts
 
-```http
-POST https://api.caremax.ai/api/auth/device
-Content-Type: application/json
+All scripts are at `~/.claude/skills/caremax-auth/scripts/`.
 
-{
-  "client_id": "caremax-agent",
-  "scope": "read:indicators read:records read:members write:upload write:ocr search:records"
-}
+### api-call.sh — Make authenticated API calls (PRIMARY TOOL)
+
+This is what you should use for all API calls. It auto-checks token, auto-refreshes if expired.
+
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/api-call.sh GET /api/skill/indicators
+bash ~/.claude/skills/caremax-auth/scripts/api-call.sh POST /api/skill/records/search '{"query":"血常规"}'
+bash ~/.claude/skills/caremax-auth/scripts/api-call.sh GET "/api/skill/indicators/trend?id=xxx"
 ```
 
-Response:
-```json
-{
-  "device_code": "dc-a1b2c3...",
-  "user_code": "ABCD-1234",
-  "verification_uri": "https://api.caremax.ai/authorize",
-  "verification_uri_complete": "https://api.caremax.ai/authorize?code=ABCD-1234",
-  "expires_in": 900,
-  "interval": 5
-}
+If it returns `{"error":"no_credentials",...}` → run `auth-flow.sh` (see below), then retry.
+
+### auth-flow.sh — One-shot full authorization (opens browser + auto-polls)
+
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh
 ```
 
-### Step 2: Open Browser for User Approval
+This script does EVERYTHING in one shot:
+1. Requests device code from the API
+2. Opens the user's browser to the authorize page
+3. **Automatically polls every 5 seconds** until the user approves (up to 15 min)
+4. Saves token to `~/.caremax/credentials.json`
 
-Open `verification_uri_complete` in the user's default browser. The user will:
-1. Log in (or register if new)
-2. See requested permissions
-3. Click "Allow"
+Output when done: `{"status":"authorized","access_token":"sk-caremax-...","base_url":"..."}`
 
-### Step 3: Poll for Token
+**Run this in the background** so you can tell the user what's happening while it polls:
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh &
+```
+Then tell the user: "I've opened the authorization page in your browser. Please log in and click Allow. I'll detect it automatically."
 
-Poll every `interval` seconds (default 5):
+Wait for the background job to finish — it will output the result.
 
-```http
-POST https://api.caremax.ai/api/auth/device/token
-Content-Type: application/json
+### check-token.sh — Check token status (used internally by api-call.sh)
 
-{
-  "device_code": "dc-a1b2c3...",
-  "grant_type": "device_code"
-}
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/check-token.sh
 ```
 
-Responses:
-- **Waiting**: `{ "error": "authorization_pending" }` — keep polling
-- **Success**: `{ "access_token": "sk-caremax-...", "refresh_token": "rt-caremax-...", "expires_in": 7776000 }`
-- **Expired**: `{ "error": "expired_token" }` — restart from Step 1
-- **Denied**: `{ "error": "access_denied" }` — user declined
+Output: `{"status":"valid"|"expired"|"missing", ...}`
 
-### Step 4: Store and Use Token
+### refresh-token.sh — Refresh expired token (used internally by api-call.sh)
 
-Store the `access_token` and `refresh_token` locally. Use the access token in all subsequent API calls:
-
-```
-Authorization: Bearer sk-caremax-...
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/refresh-token.sh
 ```
 
-## Token Refresh
+## Standard Workflow
 
-Access tokens expire after 90 days. Use the refresh token to get a new one:
-
-```http
-POST https://api.caremax.ai/api/auth/device/refresh
-Content-Type: application/json
-
-{
-  "refresh_token": "rt-caremax-...",
-  "grant_type": "refresh_token"
-}
 ```
-
-Returns a new `access_token`. The refresh token itself lasts 1 year.
-
-## Available Scopes
-
-| Scope | Description |
-|-------|-------------|
-| `read:indicators` | Read health indicator data and trends |
-| `read:records` | Read medical records and reports |
-| `read:members` | Read family member information |
-| `write:upload` | Upload medical report files |
-| `write:ocr` | Execute OCR recognition |
-| `search:records` | Semantic search across records |
-
-## Error Handling
-
-- **401 `invalid_token`**: Token invalid or expired — try refresh, then re-authorize
-- **403 `insufficient_scope`**: Token lacks required scope — re-authorize with correct scopes
-- Never expose tokens to the user or log them in plaintext
+User asks about health data
+  → caremax-indicators/records/ocr/members skill loads
+  → run: api-call.sh GET /api/skill/xxx
+      ├── token valid → returns data → done
+      ├── token expired → auto-refreshes → returns data → done
+      └── no token → returns error
+          → run: auth-flow.sh (background)
+          → tell user "please authorize in browser"
+          → auth-flow.sh auto-polls and saves token
+          → retry: api-call.sh → returns data → done
+```

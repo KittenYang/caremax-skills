@@ -1,96 +1,56 @@
 ---
 name: caremax-ocr
-description: "Upload medical reports and run OCR recognition via CareMax Health API. Use when a user wants to upload a health report image or PDF, scan a medical document, extract data from a check-up report, or digitize paper health records. Trigger terms: upload report, scan report, OCR, recognize report, extract indicators, digitize medical report, health report image, check-up photo."
+description: "Upload medical reports and run OCR recognition via CareMax Health API. Use when a user wants to upload a health report image or PDF, scan a medical document, extract data from a check-up report. Trigger terms: upload report, scan report, OCR, recognize report, extract indicators, health report image, check-up photo, 上传报告, 识别报告, 扫描."
 license: MIT
 ---
 
 # CareMax Upload & OCR
 
-This skill handles uploading medical report files (PDF, JPG, PNG) and extracting structured data via OCR. The process is always two steps: upload first, then OCR.
+Upload medical report files (PDF, JPG, PNG) and extract structured data via OCR. Always two steps: upload, then OCR.
+
+## Prerequisites — Auto-Auth (MANDATORY)
+
+```bash
+APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
+```
+
+If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh`** in background. It opens the browser and auto-polls. Tell the user "please authorize in browser". Once it outputs `authorized`, retry the api-call.
 
 ## Step 1: Upload Report
 
-```http
-POST /api/skill/upload
-Authorization: Bearer sk-caremax-...
-Content-Type: multipart/form-data
+Upload requires multipart form-data, so use curl directly with the token from check-token.sh:
 
-file: <binary file data>
-memberId: <optional member UUID>
+```bash
+TOKEN=$(bash ~/.claude/skills/caremax-auth/scripts/check-token.sh | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+BASE_URL=$(bash ~/.claude/skills/caremax-auth/scripts/check-token.sh | python3 -c "import sys,json; print(json.load(sys.stdin)['base_url'])")
+
+curl -s -X POST "$BASE_URL/api/skill/upload" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/path/to/report.pdf" \
+  -F "memberId=member-uuid"
 ```
 
-Supported formats: PDF, JPG, JPEG, PNG.
-
-Response:
-```json
-{
-  "fileIds": ["file-uuid-1", "file-uuid-2"]
-}
-```
-
-PDF files with multiple pages may return multiple file IDs (one per page image).
+Response: `{"fileIds":["file-uuid-1","file-uuid-2"]}`
 
 ## Step 2: OCR Recognition
 
-```http
-POST /api/skill/ocr
-Authorization: Bearer sk-caremax-...
-Content-Type: application/json
-
-{
-  "fileIds": ["file-uuid-1"],
-  "memberId": "member-uuid",
-  "redo": false
-}
+```bash
+$APICALL POST /api/skill/ocr '{"fileIds":["file-uuid-1"],"memberId":"member-uuid"}'
 ```
 
-Parameters:
-- `fileIds` (required) — File IDs from the upload step
-- `memberId` (optional) — Associate with a family member
-- `redo` (optional) — Re-run OCR on previously processed files
-
-Response contains extracted medical records:
-```json
-{
-  "records": [
-    {
-      "test_date": "2025-03-15T00:00:00",
-      "hospital": "Peking University Third Hospital",
-      "department": "Laboratory",
-      "report_title": "Blood Routine",
-      "has_abnormality": 1,
-      "indicators": [
-        {
-          "name": "hemoglobin",
-          "value": "135",
-          "unit": "g/L",
-          "reference_range": "130-175",
-          "is_abnormal": 0
-        }
-      ]
-    }
-  ]
-}
-```
+Response: `{"records":[{"test_date":"...","hospital":"...","indicators":[...]}]}`
 
 ## Complete Workflow
 
-When a user says "help me scan this report" or shares an image:
+When user says "help me scan this report" or shares an image:
 
-1. **Upload**: `POST /api/skill/upload` with the file
-2. **OCR**: `POST /api/skill/ocr` with the returned file IDs
-3. **Present**: Show extracted data — hospital, date, indicators with values and reference ranges
-4. Highlight any abnormal indicators
+1. Upload the file → get fileIds
+2. OCR with fileIds → get extracted records
+3. Present: hospital, date, indicators with values, reference ranges
+4. Highlight abnormal indicators
 
-## OCR Quota
+## Notes
 
-- Free users: limited OCR scans per month
-- Premium users: unlimited OCR
-- If quota exceeded, the API returns an error — inform the user about upgrading
-
-## Tips
-
-- For best OCR results, ensure the image is clear and well-lit
-- The OCR engine handles Chinese medical reports natively
-- Extracted indicators are automatically standardized and linked to the user's indicator dictionary
-- After OCR, the data is immediately queryable via the records and indicators endpoints
+- Free users have limited OCR scans/month; premium = unlimited
+- OCR handles Chinese medical reports natively
+- After OCR, data is immediately queryable via caremax-indicators and caremax-records

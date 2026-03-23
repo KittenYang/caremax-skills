@@ -1,85 +1,81 @@
 ---
 name: caremax-indicators
-description: "Query and track health indicators from CareMax Health API. Use when a user asks about health metrics, lab results, indicator trends, blood test values, or wants to view health data over time. Trigger terms: health indicator, lab result, blood test, creatinine, blood sugar, cholesterol, hemoglobin, trend, health metric, indicator category, health data."
+description: "Query and track health indicators from CareMax Health API. Use when a user asks about health metrics, lab results, indicator trends, blood test values, or wants to view health data over time. Trigger terms: health indicator, lab result, blood test, creatinine, blood sugar, cholesterol, hemoglobin, trend, health metric, indicator category, health data, 血常规, 肌酐, 血糖, 胆固醇, 指标, 趋势."
 license: MIT
 ---
 
 # CareMax Health Indicators
 
-This skill covers querying health indicators, viewing trends over time, and browsing indicator categories. Health indicators are structured lab test results extracted from medical reports via OCR.
+This skill covers querying health indicators, viewing trends over time, and browsing indicator categories.
+
+## Prerequisites — Auto-Auth (MANDATORY)
+
+All API calls below use `api-call.sh` from the caremax-auth skill. It handles token check + refresh automatically.
+
+```bash
+# shorthand used in all examples below
+APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
+```
+
+If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh`** in background. It opens the browser and auto-polls. Tell the user "please authorize in browser". Once it outputs `authorized`, retry the api-call.
 
 ## List All Indicators
 
-Returns the user's complete indicator dictionary with latest values and data point counts.
-
-```http
-GET /api/skill/indicators
-Authorization: Bearer sk-caremax-...
+```bash
+$APICALL GET /api/skill/indicators
+# with category filter:
+$APICALL GET "/api/skill/indicators?category=血常规"
 ```
 
-Optional query parameter: `?category=blood_routine` to filter by category.
-
-Response includes:
-- `id` — Indicator UUID (needed for trend queries)
-- `canonical_name` — Standardized name
-- `display_name` — User-customizable display name
-- `canonical_unit` — Standard unit
-- `category` — Category (e.g., blood routine, liver function, kidney function)
-- `latest_value` — Most recent recorded value
-- `data_count` — Number of historical data points
+Response fields: `id` (UUID, needed for trend), `canonical_name`, `display_name`, `canonical_unit`, `category`, `latest_value`, `data_count`
 
 ## Get Indicator Categories
 
-```http
-GET /api/skill/indicators/categories
-Authorization: Bearer sk-caremax-...
+```bash
+$APICALL GET /api/skill/indicators/categories
 ```
-
-Returns all available categories like: blood routine, liver function, kidney function, lipid panel, thyroid, urine, etc.
 
 ## Get Indicator Trend
 
-**Important**: You need the indicator's UUID from the list endpoint first.
+**Important**: Get the indicator UUID from the list endpoint first.
 
-```http
-GET /api/skill/indicators/trend?id={indicator_uuid}
-Authorization: Bearer sk-caremax-...
+```bash
+$APICALL GET "/api/skill/indicators/trend?id={indicator_uuid}"
 ```
 
-Returns time-series data:
-- `date` — Test date
-- `value` — Indicator value
-- `unit` — Unit
-- `reference_range` — Normal range
-- `is_abnormal` — 0 (normal) or 1 (abnormal)
+Returns time-series: `date`, `value`, `unit`, `reference_range`, `is_abnormal` (0/1)
 
 ## Get Trends by Category
 
-View all indicators in a category at once:
-
-```http
-GET /api/skill/indicators/trends-by-category?category={category_name}
-Authorization: Bearer sk-caremax-...
+```bash
+$APICALL GET "/api/skill/indicators/trends-by-category?category={category_name}"
 ```
 
 ## Recommended Workflow
 
-When a user asks "show my creatinine trend":
+When user asks "show my creatinine trend":
 
-1. `GET /api/skill/indicators` — find the indicator matching "creatinine"
-2. Extract its `id` (UUID)
-3. `GET /api/skill/indicators/trend?id={uuid}` — get trend data
-4. Present the data with dates, values, units, and highlight any abnormal readings
+```bash
+# 1. List all indicators, find the matching one
+$APICALL GET /api/skill/indicators
+# 2. Extract the id (UUID) of the matching indicator from the response
+# 3. Get trend data
+$APICALL GET "/api/skill/indicators/trend?id={uuid}"
+# 4. Present with dates, values, units, highlight abnormals
+```
 
-When a user asks "what are my abnormal indicators":
+When user asks "what are my abnormal indicators":
 
-1. `GET /api/skill/indicators` — get all indicators
-2. Filter for those with abnormal latest values
-3. Present the abnormal indicators with their values and reference ranges
+```bash
+# 1. Get all indicators
+$APICALL GET /api/skill/indicators
+# 2. Filter response for those with abnormal latest values
+# 3. Present with values and reference ranges
+```
 
 ## Display Guidelines
 
-- Always show values with their units (e.g., "98 umol/L" not just "98")
+- Always show values with units (e.g., "98 μmol/L" not just "98")
 - Include reference ranges when available
 - Flag abnormal values clearly
 - For trends, show dates in chronological order

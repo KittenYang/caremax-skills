@@ -1,83 +1,62 @@
 ---
 name: caremax-records
-description: "Query and search medical records from CareMax Health API. Use when a user asks about medical reports, check-up history, hospital visits, test results, or wants to find specific records. Supports structured query and AI-powered semantic search. Trigger terms: medical record, check-up, hospital report, test result, health report, find report, search records, medical history."
+description: "Query and search medical records from CareMax Health API. Use when a user asks about medical reports, check-up history, hospital visits, test results, or wants to find specific records. Supports structured query and AI-powered semantic search. Trigger terms: medical record, check-up, hospital report, test result, health report, find report, search records, medical history, 体检, 报告, 检查."
 license: MIT
 ---
 
 # CareMax Medical Records
 
-This skill covers querying and searching medical records. Records are structured data extracted from uploaded health reports, containing hospital info, department, indicators, and diagnosis.
+This skill covers querying and searching medical records.
+
+## Prerequisites — Auto-Auth (MANDATORY)
+
+```bash
+APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
+```
+
+If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh`** in background. It opens the browser and auto-polls. Tell the user "please authorize in browser". Once it outputs `authorized`, retry the api-call.
 
 ## Query Records (Structured)
 
-Filter records by specific criteria:
+```bash
+# By date range
+$APICALL POST /api/skill/records/query '{"dateRange":["2025-01-01","2025-12-31"]}'
 
-```http
-POST /api/skill/records/query
-Authorization: Bearer sk-caremax-...
-Content-Type: application/json
+# By indicator name
+$APICALL POST /api/skill/records/query '{"indicatorName":"creatinine"}'
 
-{
-  "dateRange": ["2025-01-01", "2025-12-31"],
-  "indicatorName": "creatinine",
-  "reportTitle": "blood routine",
-  "memberId": "member-uuid",
-  "page": 1,
-  "limit": 20
-}
+# By report title
+$APICALL POST /api/skill/records/query '{"reportTitle":"血常规"}'
+
+# By member + pagination
+$APICALL POST /api/skill/records/query '{"memberId":"member-uuid","page":1,"limit":20}'
 ```
 
-All fields are optional. Common queries:
-- By date range: `{ "dateRange": ["2025-06-01", "2025-06-30"] }`
-- By indicator: `{ "indicatorName": "hemoglobin" }`
-- By report type: `{ "reportTitle": "liver function" }`
-- By family member: `{ "memberId": "..." }`
+All fields optional. Response: `records[]` (id, test_date, hospital, department, report_title, has_abnormality, indicators[]), `total`, `page`.
 
 ## Semantic Search (AI-Powered)
 
-Natural language search across all medical records:
-
-```http
-POST /api/skill/records/search
-Authorization: Bearer sk-caremax-...
-Content-Type: application/json
-
-{
-  "query": "liver function abnormalities in the past year",
-  "memberId": "member-uuid",
-  "topK": 5
-}
+```bash
+$APICALL POST /api/skill/records/search '{"query":"肝功能异常","topK":5}'
+# With member filter:
+$APICALL POST /api/skill/records/search '{"query":"recent blood routine","memberId":"xxx"}'
 ```
 
-The search query accepts Chinese and English natural language. Examples:
-- "recent blood routine reports"
-- "any abnormal liver function results"
-- "kidney function tests from last month"
-- "all reports from Peking University Hospital"
-
-## Response Structure
-
-Each record contains:
-- `id` — Record UUID
-- `test_date` — When the test was performed
-- `hospital` — Hospital name
-- `doctor` — Doctor name
-- `department` — Department (e.g., internal medicine, ophthalmology)
-- `report_title` — Report type (e.g., blood routine, liver function panel)
-- `has_abnormality` — Whether any indicator is abnormal (0/1)
-- `diagnosis` — Diagnosis or notes
-- `indicators[]` — Array of extracted indicators with name, value, unit, reference_range, is_abnormal
+Accepts Chinese and English natural language.
 
 ## Recommended Workflow
 
-When a user asks "show my recent check-up results":
-1. `POST /api/skill/records/query` with a recent date range
-2. Present records grouped by date, showing report titles and key indicators
+"show my recent check-up results":
+```bash
+$APICALL POST /api/skill/records/query '{"dateRange":["2025-01-01","2025-06-30"]}'
+```
 
-When a user asks "find reports with abnormal results":
-1. `POST /api/skill/records/search` with query "abnormal indicators"
-2. Highlight the abnormal indicators in each result
+"find reports with abnormal results":
+```bash
+$APICALL POST /api/skill/records/search '{"query":"abnormal indicators"}'
+```
 
-When a user asks a vague question like "how's my liver":
-1. Use semantic search: `{ "query": "liver function" }`
-2. Present the most relevant records with liver-related indicators
+"how's my liver":
+```bash
+$APICALL POST /api/skill/records/search '{"query":"肝功能"}'
+```
