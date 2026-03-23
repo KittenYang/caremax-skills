@@ -28,6 +28,15 @@ bash ~/.claude/skills/caremax-auth/scripts/api-call.sh GET "/api/skill/indicator
 
 If it returns `{"error":"no_credentials",...}` → run `auth-flow.sh` (see below), then retry.
 
+### ocr-stream.sh — OCR with real-time SSE progress (for caremax-ocr skill)
+
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/ocr-stream.sh '{"fileIds":["id1","id2"],"memberId":"xxx"}'
+```
+
+Outputs one JSON per line as OCR progresses. Last line (step=done) has the full results.
+Read each line and display progress to the user. See caremax-ocr skill for details.
+
 ### auth-flow.sh — One-shot full authorization (opens browser + auto-polls)
 
 ```bash
