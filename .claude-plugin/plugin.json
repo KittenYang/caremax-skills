@@ -1,0 +1,6 @@
+{
+  "name": "caremax-skills",
+  "description": "Official CareMax Health skills for Claude, Cursor, and other AI agents — health indicator tracking, medical report OCR, trend analysis, semantic search, and family health management",
+  "version": "1.0.0",
+  "skills": "./skills/"
+}

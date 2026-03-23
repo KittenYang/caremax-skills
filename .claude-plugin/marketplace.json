@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "caremax-skills",
+  "description": "Official CareMax Health skills for Claude, Cursor, and other AI agents — health indicator tracking, medical report OCR, trend analysis, semantic search, and family health management",
+  "owner": {
+    "name": "CareMax.ai",
+    "email": "support@caremax.ai"
+  },
+  "plugins": [
+    {
+      "name": "caremax-skills",
+      "description": "Official CareMax Health skills for AI agents, covering OAuth authentication, health indicators, medical records, OCR recognition, trend analysis, and family member management",
+      "author": {
+        "name": "CareMax.ai"
+      },
+      "source": ".",
+      "category": "productivity"
+    }
+  ]
+}
