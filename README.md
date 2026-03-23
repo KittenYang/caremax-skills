@@ -38,6 +38,39 @@ Copy the `skills/` folder into your project or agent configuration directory.
 | **caremax-ocr** | Upload medical reports and OCR recognition |
 | **caremax-members** | Family member management |
 
+## Try It Out
+
+After installation, just ask your agent:
+
+### Health Indicators
+- `Show all my health indicators`
+- `What's my creatinine level?`
+- `Blood sugar trend over the past 6 months`
+- `Do I have any abnormal indicators?`
+- `List all indicators under blood routine`
+
+### Medical Records
+- `Show my recent check-up reports`
+- `Search for liver function related reports`
+- `What tests did I have in 2024?`
+- `Find reports with abnormal results`
+
+### Upload & OCR
+- `Help me scan this medical report` (with image attached)
+- `Upload this PDF report`
+- `Extract data from this lab sheet`
+
+### Family Members
+- `List my family members`
+- `Show my mom's blood sugar trend`
+- `Upload this report for my dad`
+
+### Authentication
+- `Connect to CareMax`
+- `Log in to my health account`
+
+> On first use, the agent automatically opens a browser for login. All subsequent requests are authenticated without interruption.
+
 ## How It Works
 
 When a user asks an agent to interact with their health data (e.g., "show my creatinine trend", "upload this medical report"), the agent uses these skills to:
