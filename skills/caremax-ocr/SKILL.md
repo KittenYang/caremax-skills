@@ -22,7 +22,7 @@ APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
 OCRSTREAM="bash ~/.claude/skills/caremax-auth/scripts/ocr-stream.sh"
 ```
 
-If any script returns `no_credentials` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh`**.
+If any script returns `no_credentials` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`**. If the user specified a custom URL (e.g., `http://localhost:8788`), pass it as the argument.
 
 ## Step 1: Upload Files
 

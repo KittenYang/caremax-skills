@@ -14,7 +14,7 @@ List and work with family member profiles. CareMax supports tracking health data
 APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
 ```
 
-If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh`** in background. It opens the browser and auto-polls. Tell the user "please authorize in browser". Once it outputs `authorized`, retry the api-call.
+If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`** in background. If the user specified a custom URL, pass it as the argument.
 
 ## List Members
 
