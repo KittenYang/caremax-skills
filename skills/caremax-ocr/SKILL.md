@@ -6,6 +6,8 @@ license: MIT
 
 # CareMax Upload & OCR
 
+> **Requires `caremax-auth` skill.** If `~/.claude/skills/caremax-auth/` doesn't exist, tell the user to install it first.
+
 Upload medical report files (PDF, JPG, PNG, HEIC) and extract structured data via AI-powered OCR.
 
 **Session-based workflow**: upload → OCR → review → confirm. All operations are on a single session.

@@ -6,6 +6,8 @@ license: MIT
 
 # CareMax Medical Records
 
+> **Requires `caremax-auth` skill.** If `~/.claude/skills/caremax-auth/` doesn't exist, tell the user to install it first.
+
 This skill covers querying and searching medical records.
 
 ## Prerequisites — Auto-Auth (MANDATORY)

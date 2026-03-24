@@ -6,6 +6,8 @@ license: MIT
 
 # CareMax Family Members
 
+> **Requires `caremax-auth` skill.** If `~/.claude/skills/caremax-auth/` doesn't exist, tell the user to install it first.
+
 List and work with family member profiles. CareMax supports tracking health data for multiple family members.
 
 ## Prerequisites — Auto-Auth (MANDATORY)

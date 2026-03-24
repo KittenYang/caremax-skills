@@ -6,6 +6,8 @@ license: MIT
 
 # CareMax Health Indicators
 
+> **Requires `caremax-auth` skill.** All scripts (api-call.sh, auth-flow.sh, etc.) live in caremax-auth. If missing, tell the user: "Please install caremax-auth first: `npx skills add KittenYang/caremax-skills` and select caremax-auth."
+
 This skill covers querying health indicators, viewing trends over time, and browsing indicator categories.
 
 ## Prerequisites — Auto-Auth (MANDATORY)

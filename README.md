@@ -17,13 +17,15 @@ Settings > Rules > Add Remote Rule (GitHub) > KittenYang/caremax-skills
 
 ## Skills
 
-| Skill | Description |
-|-------|-------------|
-| **caremax-auth** | OAuth Device Flow authentication + session scripts |
-| **caremax-indicators** | Health indicator queries, trends, and categories |
-| **caremax-records** | Medical record queries and semantic search |
-| **caremax-ocr** | Session-based upload, OCR, review, and confirm |
-| **caremax-members** | Family member management |
+> **caremax-auth is REQUIRED.** All other skills depend on its scripts for authentication and API calls. Install it first.
+
+| Skill | Required | Description |
+|-------|----------|-------------|
+| **caremax-auth** | **YES** | OAuth Device Flow auth + all shared scripts (api-call, upload, ocr-stream, download) |
+| **caremax-indicators** | no | Health indicator queries, trends, and categories |
+| **caremax-records** | no | Medical record queries and semantic search |
+| **caremax-ocr** | no | Session-based upload, OCR, review, and confirm |
+| **caremax-members** | no | Family member management |
 
 ## Session-Based Architecture
 
