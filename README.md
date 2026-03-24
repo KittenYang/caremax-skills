@@ -1,113 +1,122 @@
 # CareMax Health AI Skills
 
-This repository provides official AI skills for [CareMax.ai](https://caremax.ai) — a health data management platform. Compatible with Claude Code, Cursor, Copilot, and 40+ other agents.
-
-## Key Features
-
-The skills teach agents how to interact with CareMax Health API: upload medical reports, OCR recognition, health indicator tracking, trend analysis, semantic search, and family member management.
+Official AI skills for [CareMax.ai](https://caremax.ai) — a health data management platform. Compatible with Claude Code, Cursor, Copilot, and 40+ other agents.
 
 ## Installation
 
-### npx skills (recommended)
-
 ```bash
+# npx skills (recommended)
 npx skills add https://github.com/KittenYang/caremax-skills
-```
 
-### Claude Code
-
-```bash
+# Claude Code
 /plugin marketplace add KittenYang/caremax-skills
+
+# Cursor
+Settings > Rules > Add Remote Rule (GitHub) > KittenYang/caremax-skills
 ```
-
-### Cursor
-
-Settings > Rules > Add Remote Rule (GitHub) > `KittenYang/caremax-skills`
-
-### Manual
-
-Copy the `skills/` folder into your project or agent configuration directory.
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| **caremax-auth** | OAuth Device Flow authentication — automatic agent authorization |
-| **caremax-indicators** | Health indicator queries, trends, and category browsing |
+| **caremax-auth** | OAuth Device Flow authentication + session scripts |
+| **caremax-indicators** | Health indicator queries, trends, and categories |
 | **caremax-records** | Medical record queries and semantic search |
-| **caremax-ocr** | Upload medical reports and OCR recognition |
+| **caremax-ocr** | Session-based upload, OCR, review, and confirm |
 | **caremax-members** | Family member management |
+
+## Session-Based Architecture
+
+CareMax uses a **session-centric** workflow — each upload creates a session that groups files and reports together:
+
+```
+upload (creates session)
+  → OCR (processes all files in session, SSE progress)
+    → review (agent shows results, user confirms)
+      → confirm (atomically saves all reports)
+```
+
+One session can produce multiple reports (e.g., a long screenshot with 2 reports, or 3 images from the same check-up).
 
 ## Try It Out
 
 After installation, just ask your agent:
-
-### Health Indicators
-- `Show all my health indicators`
-- `What's my creatinine level?`
-- `Blood sugar trend over the past 6 months`
-- `Do I have any abnormal indicators?`
-- `List all indicators under blood routine`
-
-### Medical Records
-- `Show my recent check-up reports`
-- `Search for liver function related reports`
-- `What tests did I have in 2024?`
-- `Find reports with abnormal results`
 
 ### Upload & OCR
 - `Help me scan this medical report` (with image attached)
 - `Upload this PDF report`
 - `Extract data from this lab sheet`
 
+### Health Indicators
+- `Show all my health indicators`
+- `What's my creatinine level?`
+- `Blood sugar trend over the past 6 months`
+- `Do I have any abnormal indicators?`
+
+### Medical Records
+- `Show my recent check-up reports`
+- `Search for liver function related reports`
+- `Find reports with abnormal results`
+
 ### Family Members
-- `List my family members`
 - `Show my mom's blood sugar trend`
 - `Upload this report for my dad`
 
-### Authentication
-- `Connect to CareMax`
-- `Log in to my health account`
+### Session Management
+- `Show my pending uploads`
+- `Continue my last upload`
+- `Delete that upload session`
 
-> On first use, the agent automatically opens a browser for login. All subsequent requests are authenticated without interruption.
+## Scripts
 
-## How It Works
+All scripts are in `skills/caremax-auth/scripts/`:
 
-When a user asks an agent to interact with their health data (e.g., "show my creatinine trend", "upload this medical report"), the agent uses these skills to:
+| Script | Purpose |
+|--------|---------|
+| `auth-flow.sh [base_url]` | One-shot auth: browser + auto-poll + save token |
+| `upload.sh <files...>` | Upload files → create session |
+| `ocr-stream.sh <session_id>` | OCR with real-time SSE progress |
+| `api-call.sh <method> <path> [body]` | Authenticated API call (auto-refresh) |
+| `download-file.sh <file_id> [path]` | Download a source file |
+| `check-token.sh` | Check token status |
+| `refresh-token.sh` | Refresh expired token |
 
-1. **Authenticate** via OAuth Device Flow — opens a browser for user approval, no manual API key needed
-2. **Call CareMax API** with the obtained access token
-3. **Return structured data** — indicators, trends, records, OCR results
-
-## Core Patterns
+## API Endpoints
 
 ```
-# Authentication (one-time setup)
-POST /api/auth/device         → get device_code + user_code
-→ open browser for user approval
-POST /api/auth/device/token   → poll until access_token is returned
+# Sessions (core workflow)
+POST /api/sessions/upload              → create session + upload files
+POST /api/sessions/:id/ocr            → OCR with SSE progress
+POST /api/sessions/:id/confirm        → save all reports atomically
+GET  /api/sessions                     → list sessions
+GET  /api/sessions/:id                → session detail
+DELETE /api/sessions/:id              → delete session + all data
 
-# API calls (with Bearer token)
-GET  /api/skill/indicators              → list health indicators
-GET  /api/skill/indicators/trend?id=xxx → get trend data
-POST /api/skill/records/query           → query medical records
-POST /api/skill/records/search          → semantic search
-POST /api/skill/upload                  → upload report file
-POST /api/skill/ocr                     → OCR recognition
-GET  /api/skill/members                 → list family members
+# Data queries
+GET  /api/skill/indicators            → health indicators
+GET  /api/skill/indicators/trend      → indicator trend
+GET  /api/skill/indicators/categories → indicator categories
+POST /api/skill/records/query         → query medical records
+GET  /api/skill/members               → family members
+
+# Auth
+POST /api/auth/device                 → request device code
+POST /api/auth/device/token           → poll for token
+POST /api/auth/device/refresh         → refresh token
 ```
 
-## Guidance for AI Agents
+## Local Development
 
-When a user mentions health data, medical reports, health indicators, or CareMax, use these skills. The API uses standard REST with JSON responses and Bearer token authentication.
-
-**Risk Level**: LOW — read-only health data queries. Write operations (upload/OCR) require explicit user intent.
+```bash
+# Point to local backend
+bash auth-flow.sh http://localhost:8787
+# All subsequent calls auto-use localhost
+```
 
 ## API Base URL
 
 - Production: `https://api.caremax.ai`
 - Discovery: `https://api.caremax.ai/.well-known/ai-plugin.json`
-- OpenAPI Spec: `https://api.caremax.ai/openapi.yaml`
 
 ## License
 
