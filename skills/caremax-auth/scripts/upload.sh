@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# 上传文件到 CareMax（支持多文件）
+# 上传文件到 CareMax — 创建 session + 上传文件
 # 用法: bash upload.sh <file1> [file2] [file3] ...
-# 输出: JSON { "files": [{ "id": "...", "member_id": "...", ... }] }
+# 输出: JSON { "session_id": "...", "member_id": "...", "files": [...] }
 #
 # 示例:
 #   bash upload.sh /path/to/report.jpg
-#   bash upload.sh /path/to/img1.jpg /path/to/img2.png
+#   bash upload.sh /path/to/img1.jpg /path/to/img2.png /path/to/report.pdf
 
 set -euo pipefail
 
@@ -38,7 +38,7 @@ fi
 ACCESS_TOKEN=$(echo "$TOKEN_STATUS" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 BASE_URL=$(echo "$TOKEN_STATUS" | python3 -c "import sys,json; print(json.load(sys.stdin)['base_url'])")
 
-# 构建 curl -F 参数（每个文件一个 -F "files=@..."）
+# 构建 curl -F 参数
 FILE_ARGS=()
 for filepath in "$@"; do
   if [ ! -f "$filepath" ]; then
@@ -48,6 +48,6 @@ for filepath in "$@"; do
   FILE_ARGS+=(-F "files=@$filepath")
 done
 
-curl -s -X POST "${BASE_URL}/api/skill/upload" \
+curl -s -X POST "${BASE_URL}/api/sessions/upload" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   "${FILE_ARGS[@]}"
