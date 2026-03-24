@@ -1,6 +1,6 @@
 ---
 name: caremax-ocr
-description: "Upload medical reports and run OCR recognition via CareMax Health API. Session-based: upload creates a session, OCR processes all files in the session, confirm saves all reports atomically. Trigger terms: upload report, scan report, OCR, recognize report, extract indicators, health report image, check-up photo, upload, scan, extract."
+description: "Upload medical reports and run OCR recognition via CareMax Health API. Session-based: upload creates a session, OCR processes all files in the session, confirm saves all reports atomically. Also handles resuming incomplete sessions (stuck uploads, pending confirmations). Trigger terms: upload report, scan report, OCR, recognize report, extract indicators, health report image, check-up photo, upload, scan, extract, resume upload, continue upload, pending session, unfinished upload, 继续上传, 未完成."
 license: MIT
 ---
 
@@ -93,13 +93,55 @@ $APICALL POST "/api/skill/sessions/<session_id>/confirm" '{"reports":[<reports f
 
 Returns: `{"success":true,"message":"2 report(s) saved","recordIds":[...]}`
 
+## Resuming incomplete sessions
+
+When the user asks to continue/resume a previous upload, or when checking for unfinished work:
+
+### Step A: Find pending sessions
+
+```bash
+# List sessions that need OCR (uploaded but not processed)
+$APICALL GET "/api/skill/sessions?status=uploading"
+
+# List sessions stuck in processing (user exited mid-OCR)
+$APICALL GET "/api/skill/sessions?status=processing"
+
+# List sessions with OCR done but not yet confirmed
+$APICALL GET "/api/skill/sessions?status=awaiting_confirm"
+```
+
+Show a summary of pending sessions to the user (file names, dates, status).
+
+### Step B: Resume based on status
+
+- **`uploading` or `processing`**: Re-run OCR → go to Step 2 (`$OCRSTREAM <session_id>`)
+- **`awaiting_confirm`**: Get session detail → show results → go to Step 3 (review & confirm)
+
+```bash
+# Get full detail of a pending session (includes OCR results if awaiting_confirm)
+$APICALL GET "/api/skill/sessions/<session_id>"
+```
+
+If the session is `awaiting_confirm`, the response includes `ocr_result` with the previously parsed reports — display them for review and proceed to Step 3 (confirm).
+
+### Step C: Delete stale sessions
+
+If the user no longer needs a pending session:
+
+```bash
+$APICALL DELETE "/api/skill/sessions/<session_id>"
+```
+
 ## Other session operations
 
 ```bash
-# List all sessions
+# List all sessions (all statuses)
 $APICALL GET /api/skill/sessions
 
-# Get session detail (including saved reports if completed)
+# List sessions filtered by status: uploading | processing | awaiting_confirm | completed
+$APICALL GET "/api/skill/sessions?status=<status>"
+
+# Get session detail (includes OCR results if awaiting_confirm, saved reports if completed)
 $APICALL GET "/api/skill/sessions/<session_id>"
 
 # Delete session (undo everything: files + reports)
