@@ -46,6 +46,16 @@ Use the returned `id` values as `fileIds` for `ocr-stream.sh`.
 
 **IMPORTANT**: Do NOT use `api-call.sh` for file uploads — it only supports JSON body. Always use `upload.sh` for multipart file uploads.
 
+### download-file.sh — Download a source file from a session
+
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/download-file.sh <file_id> [output_path]
+# Example:
+bash ~/.claude/skills/caremax-auth/scripts/download-file.sh abc-123 ~/Downloads/report.jpg
+```
+
+Get `file_id` from session detail (`source_files[].id` in reports, or `files[].id` in session).
+
 ### ocr-stream.sh — OCR with real-time SSE progress (for caremax-ocr skill)
 
 ```bash
