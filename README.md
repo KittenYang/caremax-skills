@@ -83,30 +83,6 @@ All scripts are in `skills/caremax-auth/scripts/`:
 | `check-token.sh` | Check token status |
 | `refresh-token.sh` | Refresh expired token |
 
-## API Endpoints
-
-```
-# Sessions (core workflow)
-POST /api/sessions/upload              → create session + upload files
-POST /api/sessions/:id/ocr            → OCR with SSE progress
-POST /api/sessions/:id/confirm        → save all reports atomically
-GET  /api/sessions                     → list sessions
-GET  /api/sessions/:id                → session detail
-DELETE /api/sessions/:id              → delete session + all data
-
-# Data queries
-GET  /api/skill/indicators            → health indicators
-GET  /api/skill/indicators/trend      → indicator trend
-GET  /api/skill/indicators/categories → indicator categories
-POST /api/skill/records/query         → query medical records
-GET  /api/skill/members               → family members
-
-# Auth
-POST /api/auth/device                 → request device code
-POST /api/auth/device/token           → poll for token
-POST /api/auth/device/refresh         → refresh token
-```
-
 ## Local Development
 
 ```bash
@@ -115,10 +91,12 @@ bash auth-flow.sh http://localhost:8787
 # All subsequent calls auto-use localhost
 ```
 
-## API Base URL
+## API
 
-- Production: `https://api.caremax.ai`
-- Discovery: `https://api.caremax.ai/.well-known/ai-plugin.json`
+Endpoints, request/response shapes, and auth flows are defined in the **[OpenAPI specification](https://api.caremax.ai/openapi.yaml)** — use it as the single source of truth.
+
+- Base URL (production): `https://api.caremax.ai`
+- Plugin discovery: `https://api.caremax.ai/.well-known/ai-plugin.json`
 
 ## License
 
