@@ -82,12 +82,49 @@ The system handles multiple report types:
 
 Non-lab reports have `report_type`, `summary`, and `sections[]` fields instead of `indicators[]`.
 
+## AI 对话（推荐）
+
+使用 `/api/skill/chat` 进行 AI 对话。所有对话自动保存到历史记录。
+
+```bash
+# 提问（自动搜索 + RAG + 保存历史）
+$APICALL POST /api/skill/chat '{"question":"我有哪个基因不能喝酒"}'
+$APICALL POST /api/skill/chat '{"question":"我的降压药应该怎么吃"}'
+
+# 针对某份报告提问
+$APICALL POST /api/skill/chat '{"question":"这份报告有什么建议","recordId":"uuid"}'
+```
+
+Response:
+```json
+{
+  "id": "chat-uuid",
+  "question": "...",
+  "answer": "根据您的报告...[来源1]",
+  "citations": [{"index":1,"source":"...","relevance":"高","quote":"原文..."}],
+  "recordId": null,
+  "created_at": "..."
+}
+```
+
+**Display the `answer` to the user.** Citations contain original report text.
+
+```bash
+# 获取历史记录
+$APICALL GET /api/skill/chat/history
+
+# 删除单条
+$APICALL DELETE /api/skill/chat/<chat_id>
+
+# 清空所有
+$APICALL DELETE /api/skill/chat
+```
+
 ## Recommended Workflow
 
 User: "我的基因检测报告说了什么"
 ```bash
-$APICALL POST /api/skill/records/query '{"searchText":"基因检测"}'
-# → Display rag.answer directly
+$APICALL POST /api/skill/chat '{"question":"我的基因检测报告说了什么"}'
 ```
 
 User: "show my recent check-up results"
@@ -97,6 +134,5 @@ $APICALL POST /api/skill/records/query '{"dateRange":["2025-01-01","2025-06-30"]
 
 User: "我的降压药应该怎么吃"
 ```bash
-$APICALL POST /api/skill/records/query '{"searchText":"降压药用药建议"}'
-# → rag.answer will cite specific medication guidance from gene report
+$APICALL POST /api/skill/chat '{"question":"我的降压药应该怎么吃"}'
 ```
