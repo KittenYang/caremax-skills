@@ -1,6 +1,6 @@
 ---
 name: caremax-records
-description: "Query and search medical records from CareMax Health API. Use when a user asks about medical reports, check-up history, hospital visits, test results, or wants to find specific records. Supports structured query and AI-powered semantic search. Trigger terms: medical record, check-up, hospital report, test result, health report, find report, search records, medical history, 体检, 报告, 检查."
+description: "Query and search medical records from CareMax Health API. Supports structured query, AI-powered semantic search with RAG (natural language answers with citations). Use when a user asks about medical reports, check-up history, hospital visits, test results, gene reports, or wants to find specific records. Trigger terms: medical record, check-up, hospital report, test result, health report, find report, search records, medical history, gene report, 体检, 报告, 检查, 基因, 搜索."
 license: MIT
 ---
 
@@ -8,57 +8,95 @@ license: MIT
 
 > **Requires `caremax-auth` skill.** If `~/.claude/skills/caremax-auth/` doesn't exist, tell the user to install it first.
 
-This skill covers querying and searching medical records.
-
 ## Prerequisites — Auto-Auth (MANDATORY)
 
 ```bash
 APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
 ```
 
-If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`** in background. If the user specified a custom URL, pass it as the argument.
+If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`**.
 
-## Query Records (Structured)
+## Smart Search (Recommended)
+
+Use `searchText` for natural language queries. Backend runs 4-layer search:
+1. LLM keyword extraction (maps "喝酒" → "ALDH2 酒精代谢")
+2. LIKE search on report titles, summaries, sections, indicators
+3. Semantic vector search (BGE-M3 → Zilliz)
+4. RAG: DeepSeek-V3.2 generates natural language answer with citations
+
+```bash
+$APICALL POST /api/skill/records/query '{"searchText":"我有哪个基因不能喝酒"}'
+$APICALL POST /api/skill/records/query '{"searchText":"我猝死的概率大吗"}'
+$APICALL POST /api/skill/records/query '{"searchText":"降压药建议"}'
+$APICALL POST /api/skill/records/query '{"searchText":"MTHFR"}'
+```
+
+Response:
+```json
+{
+  "type": "search",
+  "query": "...",
+  "data": [...],              // matched records (enriched)
+  "totalCount": 1,
+  "semanticHits": [           // vector similarity top-10
+    {"text": "...", "score": 0.61, "recordId": "xxx"}
+  ],
+  "rag": {                    // AI natural language answer
+    "answer": "根据您的基因检测报告...[来源1][来源2]",
+    "citations": [
+      {"index": 1, "source": "脑梗塞风险评估", "relevance": "高"}
+    ]
+  }
+}
+```
+
+**Display the `rag.answer` to the user.** It contains the direct answer with citation references.
+
+## Structured Query
 
 ```bash
 # By date range
 $APICALL POST /api/skill/records/query '{"dateRange":["2025-01-01","2025-12-31"]}'
 
 # By indicator name
-$APICALL POST /api/skill/records/query '{"indicatorName":"creatinine"}'
+$APICALL POST /api/skill/records/query '{"indicatorName":"血红蛋白"}'
 
 # By report title
 $APICALL POST /api/skill/records/query '{"reportTitle":"血常规"}'
+
+# By record ID (single record detail)
+$APICALL POST /api/skill/records/query '{"recordId":"uuid"}'
 
 # By member + pagination
 $APICALL POST /api/skill/records/query '{"memberId":"member-uuid","page":1,"limit":20}'
 ```
 
-All fields optional. Response: `records[]` (id, test_date, hospital, department, report_title, has_abnormality, indicators[]), `total`, `page`.
+## Report Types
 
-## Semantic Search (AI-Powered)
+The system handles multiple report types:
+- **lab**: Standard lab reports (indicators with name/value/unit/reference_range)
+- **genetic**: Gene testing reports (sections with gene/SNP/genotype/risk_level)
+- **imaging**: Radiology reports (sections with location/finding/impression)
+- **pathology**: Pathology reports (sections with tissue/grade/staging)
+- **other**: Any other medical document
 
-```bash
-$APICALL POST /api/skill/records/search '{"query":"肝功能异常","topK":5}'
-# With member filter:
-$APICALL POST /api/skill/records/search '{"query":"recent blood routine","memberId":"xxx"}'
-```
-
-Accepts Chinese and English natural language.
+Non-lab reports have `report_type`, `summary`, and `sections[]` fields instead of `indicators[]`.
 
 ## Recommended Workflow
 
-"show my recent check-up results":
+User: "我的基因检测报告说了什么"
+```bash
+$APICALL POST /api/skill/records/query '{"searchText":"基因检测"}'
+# → Display rag.answer directly
+```
+
+User: "show my recent check-up results"
 ```bash
 $APICALL POST /api/skill/records/query '{"dateRange":["2025-01-01","2025-06-30"]}'
 ```
 
-"find reports with abnormal results":
+User: "我的降压药应该怎么吃"
 ```bash
-$APICALL POST /api/skill/records/search '{"query":"abnormal indicators"}'
-```
-
-"how's my liver":
-```bash
-$APICALL POST /api/skill/records/search '{"query":"肝功能"}'
+$APICALL POST /api/skill/records/query '{"searchText":"降压药用药建议"}'
+# → rag.answer will cite specific medication guidance from gene report
 ```

@@ -65,25 +65,38 @@ Display progress to the user as each line arrives.
 
 Parse the `step=done` data. Show formatted summary. **Do NOT auto-confirm.**
 
+Each report has a `reportType` field: `lab`, `genetic`, `imaging`, `pathology`, or `other`.
+
+### Lab reports (reportType = "lab")
+Show indicators table:
 ```
-识别到 2 份报告：
-
-📋 报告 1: 尿生化 (编号: 114431194)
-   来源: report1.jpg, report2.jpg
-   日期: 2025-02-05  医生: 俞海瑾  科室: 门诊肾脏
-   ┌───────────────────────────┬────────┬──────────┬────────────────────┬──────┐
-   │ 指标                      │ 结果   │ 单位     │ 参考范围           │ 异常 │
-   ├───────────────────────────┼────────┼──────────┼────────────────────┼──────┤
-   │ 尿总蛋白/尿肌酐(mg/mmol)  │ 9.75   │ mg/mmol  │ <15                │      │
-   │ 24H尿钠                   │ 130.0  │ mmol/24h │ 137-257            │  ⬆   │
-   └───────────────────────────┴────────┴──────────┴────────────────────┴──────┘
-
-📋 报告 2: 尿生化 (编号: 119748491)
-   来源: report2.jpg
-   ...
-
-确认保存吗？
+📋 报告 1: [lab] 尿生化 (编号: 114431194)
+   日期: 2025-02-05  医生: 俞海瑾
+   指标: 12 个 (3 个异常)
+   ┌──────────────────────┬────────┬──────────┬────────────┬──────┐
+   │ 指标                 │ 结果   │ 单位     │ 参考范围   │ 异常 │
+   ├──────────────────────┼────────┼──────────┼────────────┼──────┤
+   │ 24H尿钠              │ 130.0  │ mmol/24h │ 137-257    │  ⬇   │
+   └──────────────────────┴────────┴──────────┴────────────┴──────┘
 ```
+
+### Non-lab reports (reportType = "genetic" / "imaging" / etc.)
+Show summary + sections:
+```
+📋 报告 1: [genetic] 基因检测报告
+   日期: 2025-09-12  检测机构: 南京申友医学检验所
+   摘要: 心血管18项基因检测...高血压、冠心病风险一般...
+   段落: 18 sections
+     [gene_variant] 高血压 — 风险: 正常
+     [gene_variant] 冠心病 — 风险: 一般
+     [medication] ACEI类降压药 — 正常代谢型
+     ...
+```
+
+### Supported file types
+- **Images** (JPG/PNG/HEIC): PaddleOCR → structure
+- **PDF** (any size): Azure Mistral Document AI page-split → structure
+  - Large PDFs (e.g. 23-page gene report, 9.6MB) are fully supported
 
 ## Step 4: Confirm and save
 
