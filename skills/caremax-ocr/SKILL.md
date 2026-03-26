@@ -51,6 +51,7 @@ $OCRSTREAM <session_id>
 
 Outputs one JSON per line:
 ```json
+{"step":"resume","progress":6,"message":"Resuming from saved checkpoint..."}
 {"step":"normalize","progress":5,"message":"Loading file 1/3..."}
 {"step":"ocr","progress":30,"message":"OCR page 2/3: report2.jpg"}
 {"step":"structure","progress":62,"message":"Detecting report groups..."}
@@ -60,6 +61,7 @@ Outputs one JSON per line:
 ```
 
 Display progress to the user as each line arrives.
+If `step=resume` appears, explicitly tell the user this run is continuing from a saved checkpoint (not restarting from zero).
 
 ## Step 3: Review results (MANDATORY)
 
@@ -129,7 +131,10 @@ Show a summary of pending sessions to the user (file names, dates, status).
 
 ### Step B: Resume based on status
 
-- **`uploading` or `processing`**: Re-run OCR → go to Step 2 (`$OCRSTREAM <session_id>`)
+- **`uploading`**: Start OCR directly → go to Step 2 (`$OCRSTREAM <session_id>`)
+- **`processing`**: Re-trigger OCR once. Backend behavior:
+  - returns conflict when a live task is still running (`already_processing`)
+  - auto-resumes from checkpoint when task is stale (zombie processing)
 - **`awaiting_confirm`**: Get session detail → show results → go to Step 3 (review & confirm)
 
 ```bash
@@ -138,6 +143,13 @@ $APICALL GET "/api/skill/sessions/<session_id>"
 ```
 
 If the session is `awaiting_confirm`, the response includes `ocr_result` with the previously parsed reports — display them for review and proceed to Step 3 (confirm).
+
+### Resume-aware response handling (non-stream fallback)
+
+When OCR endpoint responds with JSON (non-SSE), check:
+
+- `resumed_from_checkpoint = true`: tell user this run resumed from saved progress.
+- `code = already_processing`: tell user OCR is still running and avoid repeated retries.
 
 ### Step C: Delete stale sessions
 
