@@ -12,6 +12,8 @@ Upload medical report files (PDF, JPG, PNG, HEIC) and extract structured data vi
 
 **Session-based workflow**: upload → OCR → review → confirm. All operations are on a single session.
 
+**Checkpoint & resume**: Every pipeline step saves progress to the database. If OCR fails mid-way (LLM timeout, worker crash, network error), retrying automatically resumes from the last checkpoint — no work is lost.
+
 ## Prerequisites — Auto-Auth (MANDATORY)
 
 ```bash
@@ -51,17 +53,84 @@ $OCRSTREAM <session_id>
 
 Outputs one JSON per line:
 ```json
-{"step":"resume","progress":6,"message":"Resuming from saved checkpoint..."}
+{"step":"resume","progress":1,"message":"Resuming from checkpoint (last completed: ocr)..."}
 {"step":"normalize","progress":5,"message":"Loading file 1/3..."}
 {"step":"ocr","progress":30,"message":"OCR page 2/3: report2.jpg"}
+{"step":"ocr_retry","progress":35,"message":"Retrying OCR page 1/1: report1.jpg"}
 {"step":"structure","progress":62,"message":"Detecting report groups..."}
 {"step":"structure","progress":75,"message":"Structuring report 2/2..."}
 {"step":"normalize_indicators","progress":88,"message":"Standardizing..."}
-{"step":"done","progress":100,"data":{"session_id":"...","reports":[...]}}
+{"step":"done","progress":100,"data":{"session_id":"...","reports":[...],"resumed":true}}
 ```
 
 Display progress to the user as each line arrives.
-If `step=resume` appears, explicitly tell the user this run is continuing from a saved checkpoint (not restarting from zero).
+
+### Key progress events
+
+| step | meaning |
+|------|---------|
+| `resume` | Pipeline is resuming from a saved checkpoint (not starting from zero) |
+| `info` | Informational message (e.g. which step was resumed from) |
+| `normalize` | Loading and preprocessing files |
+| `ocr` | OCR text extraction per page |
+| `ocr_retry` | Retrying previously failed pages only |
+| `structure` | AI analyzing and grouping reports |
+| `normalize_indicators` | Standardizing indicator names |
+| `done` | Complete — `data` field contains the full results |
+| `error` | Pipeline failed — check `message` for details |
+
+If `step=resume` appears, tell the user: "正在从上次的进度继续处理（不需要重新开始）"
+
+### Error responses from `$OCRSTREAM`
+
+| code | meaning | action |
+|------|---------|--------|
+| `processing_in_progress` | Another OCR run is still active | Wait and retry, or poll `/status` |
+| `ocr_limit_exceeded` | Free OCR quota exhausted | Tell user to upgrade |
+| (no code) | Pipeline error (LLM timeout etc.) | Retry — will auto-resume from checkpoint |
+
+### Step 2b: Poll status (when SSE disconnects)
+
+If the SSE stream disconnects (network timeout, terminal closed), use the status endpoint to check progress:
+
+```bash
+$APICALL GET "/api/skill/sessions/<session_id>/status"
+```
+
+Returns:
+```json
+{
+  "session_id": "uuid",
+  "status": "processing",
+  "pipeline": {
+    "completedStep": "ocr",
+    "pageCount": 5,
+    "ocrCompleted": 4,
+    "ocrFailed": 1,
+    "reportCount": 0,
+    "errors": [{"step":"ocr","pageIndex":2,"message":"PaddleOCR timeout"}]
+  },
+  "error": null,
+  "is_stale": false
+}
+```
+
+**Field guide:**
+- `status = processing` + `is_stale = false` → OCR is still running normally
+- `status = processing` + `is_stale = true` → Worker crashed/timed out, safe to retry OCR
+- `status = awaiting_confirm` → OCR completed! Fetch session detail for results
+- `status = uploading` + `error` present → Last OCR attempt failed, retry will resume from checkpoint
+- `pipeline.completedStep` → How far the pipeline got (normalize → ocr → structure → done)
+- `pipeline.ocrFailed` → Number of pages that failed OCR (will be retried on next attempt)
+
+**Polling workflow:**
+```
+1. Call $OCRSTREAM → SSE disconnects mid-way
+2. Poll GET /sessions/<id>/status every 5-10 seconds
+3. When status = "awaiting_confirm" → fetch full results with GET /sessions/<id>
+4. If status = "uploading" (failed) → retry with $OCRSTREAM (auto-resumes)
+5. If is_stale = true → retry with $OCRSTREAM (auto-resumes from checkpoint)
+```
 
 ## Step 3: Review results (MANDATORY)
 
@@ -132,9 +201,13 @@ Show a summary of pending sessions to the user (file names, dates, status).
 ### Step B: Resume based on status
 
 - **`uploading`**: Start OCR directly → go to Step 2 (`$OCRSTREAM <session_id>`)
-- **`processing`**: Re-trigger OCR once. Backend behavior:
-  - returns conflict when a live task is still running (`already_processing`)
-  - auto-resumes from checkpoint when task is stale (zombie processing)
+  - If there's a saved checkpoint (previous failed attempt), OCR auto-resumes from it
+- **`processing`**: Check with status endpoint first:
+  ```bash
+  $APICALL GET "/api/skill/sessions/<session_id>/status"
+  ```
+  - `is_stale = false` → still running, wait or poll
+  - `is_stale = true` → worker died, safe to retry: `$OCRSTREAM <session_id>` (auto-resumes from checkpoint)
 - **`awaiting_confirm`**: Get session detail → show results → go to Step 3 (review & confirm)
 
 ```bash
@@ -144,12 +217,16 @@ $APICALL GET "/api/skill/sessions/<session_id>"
 
 If the session is `awaiting_confirm`, the response includes `ocr_result` with the previously parsed reports — display them for review and proceed to Step 3 (confirm).
 
-### Resume-aware response handling (non-stream fallback)
+### Resume-aware response handling
 
-When OCR endpoint responds with JSON (non-SSE), check:
+When `$OCRSTREAM` outputs `step=done`:
+- `resumed = true` in the data → tell user: "已从上次的进度恢复，OCR 结果已就绪"
+- `resumed = false` (or absent) → normal fresh run
 
-- `resumed_from_checkpoint = true`: tell user this run resumed from saved progress.
-- `code = already_processing`: tell user OCR is still running and avoid repeated retries.
+When `$OCRSTREAM` outputs `step=error`:
+- `code = processing_in_progress` → tell user OCR is still running, poll `/status` instead
+- `code = ocr_limit_exceeded` → tell user to upgrade
+- No code → LLM/network error, safe to retry (will auto-resume from checkpoint)
 
 ### Step C: Delete stale sessions
 
@@ -170,6 +247,9 @@ $APICALL GET "/api/skill/sessions?status=<status>"
 
 # Get session detail (includes OCR results if awaiting_confirm, saved reports if completed)
 $APICALL GET "/api/skill/sessions/<session_id>"
+
+# Poll OCR progress (lightweight, use when SSE disconnects)
+$APICALL GET "/api/skill/sessions/<session_id>/status"
 
 # Delete session (undo everything: files + reports)
 $APICALL DELETE "/api/skill/sessions/<session_id>"

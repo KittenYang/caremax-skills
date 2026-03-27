@@ -59,11 +59,16 @@ Get `file_id` from session detail (`source_files[].id` in reports, or `files[].i
 ### ocr-stream.sh — OCR with real-time SSE progress (for caremax-ocr skill)
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/ocr-stream.sh '{"fileIds":["id1","id2"],"memberId":"xxx"}'
+bash ~/.claude/skills/caremax-auth/scripts/ocr-stream.sh <session_id>
 ```
 
 Outputs one JSON per line as OCR progresses. Last line (step=done) has the full results.
 Read each line and display progress to the user. See caremax-ocr skill for details.
+
+Handles errors gracefully:
+- **409** (session already processing) → outputs `{"step":"error","code":"processing_in_progress",...}`
+- **403** (quota exceeded) → outputs `{"step":"error","code":"ocr_limit_exceeded",...}`
+- Pipeline auto-resumes from saved checkpoint on retry (no work is lost)
 
 ### auth-flow.sh — One-shot full authorization (opens browser + auto-polls)
 
@@ -182,6 +187,7 @@ After success: "已保存 N 份报告。"
 ```bash
 $APICALL GET /api/skill/sessions
 $APICALL GET "/api/skill/sessions/<session_id>"
+$APICALL GET "/api/skill/sessions/<session_id>/status"   # lightweight progress polling
 ```
 
 ### Delete session (undo entire upload)
