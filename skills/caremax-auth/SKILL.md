@@ -11,7 +11,7 @@ license: MIT
 1. This is a **silent prerequisite** for ALL caremax-* skills. Do NOT ask "do you want to authenticate?" — just execute.
 2. **NEVER write your own curl commands**. Only use the scripts below.
 3. **NEVER split auth into multiple steps manually**. Use `auth-flow.sh` — it opens browser AND auto-polls until done.
-4. **BASE URL DETECTION**: If the user specifies a custom URL (e.g., `http://localhost:8787`, `http://localhost:8788`), you MUST:
+4. **BASE URL DETECTION**: If the user specifies a custom URL (local dev 默认 `http://localhost:8788`，须与后端 wrangler `[dev]` 端口一致), you MUST:
    - Pass it as the first argument to `auth-flow.sh`: `bash auth-flow.sh http://localhost:8788`
    - After auth completes, `credentials.json` will have `base_url` set to that URL
    - All subsequent `api-call.sh`, `upload.sh`, `ocr-stream.sh` will auto-use it

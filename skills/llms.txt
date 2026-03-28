@@ -3,4 +3,3 @@ caremax-indicators
 caremax-records
 caremax-ocr
 caremax-members
-caremax-admin

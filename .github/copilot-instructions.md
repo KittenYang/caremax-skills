@@ -50,14 +50,6 @@ GET  /api/indicators/system-presets   → active presets for “快捷记一笔�
 POST /api/indicators/quick-log        → single data point (preset_key, value, optional member_id, test_date)
 ```
 
-### Operator — system preset CRUD (separate admin JWT)
-```
-POST /api/admin/auth/login            → { username, password } from Worker env
-GET|POST /api/admin/system-presets
-PUT|DELETE /api/admin/system-presets/{id}
-```
-See skills `caremax-indicators` and `caremax-admin` in this repo.
-
 ## Best Practices
 
 - Always get indicator UUID from `/api/skill/indicators` before querying trends

@@ -75,8 +75,6 @@ $APICALL POST /api/indicators/quick-log '{
 - `member_id` optional — same semantics as other family-scoped APIs when recording for another profile.
 - Creates/uses the user’s canonical indicator derived from the system preset and saves one indicator row (report title “快速记录”).
 
-**Product note:** The user-facing UI does **not** show “指标来自系统库…” style hints; presets are maintained separately via **admin** APIs (see `caremax-admin` skill).
-
 ## Get Trends by Category
 
 ```bash
