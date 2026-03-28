@@ -228,9 +228,15 @@ When `$OCRSTREAM` outputs `step=error`:
 - `code = ocr_limit_exceeded` → tell user to upgrade
 - No code → LLM/network error, safe to retry (will auto-resume from checkpoint)
 
-### Step C: Delete stale sessions
+### Step C: Delete individual reports or stale sessions
 
-If the user no longer needs a pending session:
+Delete a single report (does NOT affect other reports in the same session):
+
+```bash
+$APICALL DELETE "/api/skill/sessions/<session_id>/records/<record_id>"
+```
+
+Delete an entire session (cascade deletes ALL files + reports):
 
 ```bash
 $APICALL DELETE "/api/skill/sessions/<session_id>"
@@ -251,6 +257,9 @@ $APICALL GET "/api/skill/sessions/<session_id>"
 # Poll OCR progress (lightweight, use when SSE disconnects)
 $APICALL GET "/api/skill/sessions/<session_id>/status"
 
-# Delete session (undo everything: files + reports)
+# Delete single report (keeps session and other reports intact)
+$APICALL DELETE "/api/skill/sessions/<session_id>/records/<record_id>"
+
+# Delete entire session (undo everything: files + reports)
 $APICALL DELETE "/api/skill/sessions/<session_id>"
 ```
