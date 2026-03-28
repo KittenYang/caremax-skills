@@ -1,6 +1,6 @@
 ---
 name: caremax-indicators
-description: "Query and track health indicators from CareMax Health API. Use when a user asks about health metrics, lab results, indicator trends, blood test values, or wants to view health data over time. Trigger terms: health indicator, lab result, blood test, creatinine, blood sugar, cholesterol, hemoglobin, trend, health metric, indicator category, health data, 血常规, 肌酐, 血糖, 胆固醇, 指标, 趋势."
+description: "Query and track health indicators from CareMax Health API. Use when a user asks about health metrics, lab results, indicator trends, blood test values, quick manual vitals entry, or wants to view health data over time. Trigger terms: health indicator, lab result, blood test, creatinine, blood sugar, cholesterol, hemoglobin, trend, health metric, indicator category, health data, quick log, vital log, 血常规, 肌酐, 血糖, 胆固醇, 指标, 趋势, 快捷记一笔, 快速记录."
 license: MIT
 ---
 
@@ -8,7 +8,7 @@ license: MIT
 
 > **Requires `caremax-auth` skill.** All scripts (api-call.sh, auth-flow.sh, etc.) live in caremax-auth. If missing, tell the user: "Please install caremax-auth first: `npx skills add KittenYang/caremax-skills` and select caremax-auth."
 
-This skill covers querying health indicators, viewing trends over time, and browsing indicator categories.
+This skill covers querying health indicators, viewing trends over time, browsing indicator categories, and **quick single-point logging** (same flow as the app “快捷记一笔”).
 
 ## Prerequisites — Auto-Auth (MANDATORY)
 
@@ -46,6 +46,36 @@ $APICALL GET "/api/skill/indicators/trend?id={indicator_uuid}"
 ```
 
 Returns time-series: `date`, `value`, `unit`, `reference_range`, `is_abnormal` (0/1)
+
+## System presets & quick log (快捷记一笔)
+
+**End-user OAuth token only** (`api-call.sh`). These are **not** `/api/skill/*` routes; they live under `/api/indicators/*` and power the in-app chip row for fast vitals.
+
+### List active system presets (read-only)
+
+```bash
+$APICALL GET /api/indicators/system-presets
+```
+
+Response: `presets[]` with `id`, `preset_key`, `display_name`, `canonical_unit`, `category`, etc. Use `preset_key` when posting a quick log.
+
+### Append one data point from a preset
+
+```bash
+$APICALL POST /api/indicators/quick-log '{
+  "preset_key": "weight",
+  "value": "72.5",
+  "unit": "kg",
+  "test_date": "2026-03-28",
+  "member_id": "optional-family-member-uuid"
+}'
+```
+
+- `preset_key` and `value` are required; `unit` defaults from the preset if omitted; `test_date` defaults to today (server local date logic).
+- `member_id` optional — same semantics as other family-scoped APIs when recording for another profile.
+- Creates/uses the user’s canonical indicator derived from the system preset and saves one indicator row (report title “快速记录”).
+
+**Product note:** The user-facing UI does **not** show “指标来自系统库…” style hints; presets are maintained separately via **admin** APIs (see `caremax-admin` skill).
 
 ## Get Trends by Category
 
