@@ -85,20 +85,11 @@ After installation, just ask your agent:
 - `Blood sugar trend over the past 6 months`
 - `Do I have any abnormal indicators?`
 
-**Quick log (preset vitals)** — same idea as in-app **「快捷记一笔」**: one preset key + one value. Ask your agent in plain language, for example:
-
+### Quick log (preset vitals)
 - `Log my weight as 61 kg`
 - `Quick-log: weight 61 kg today`
 - `Record blood pressure 120/80`
 - `Log height 175 cm for today`
-
-Valid `preset_key` names depend on your account. From `skills/caremax-auth/`, run `bash scripts/list-system-presets.sh` to list them, then:
-
-```bash
-cd skills/caremax-auth
-bash scripts/quick-log.sh weight 61 --unit kg
-bash scripts/quick-log.sh weight 61 --unit kg --date 2026-03-29
-```
 
 ### Medical Records
 - `Show my recent check-up reports`
