@@ -1,140 +1,140 @@
-# From Baymax to CareMax: I Built the Health Buddy That Doesn't Exist Yet
+# No Baymax? CareMax.
 
 ---
 
 *"On a scale of 1 to 10, how would you rate your pain?"*
 
-If you've seen *Big Hero 6*, you know Baymax — that big puffy robot who scans you head-to-toe, pulls up your entire medical history, and tells you exactly what's going on. No waiting rooms. No digging through drawers for that one lab report from last March.
+If you've seen *Big Hero 6*, you know the deal. Baymax shows up, scans you, already knows your history, and explains what's going on in that absurdly reassuring voice. No waiting room. No archaeology in a desk drawer for last year's lab slip.
 
-I walked out of the theater thinking: why don't we have anything even close to that?
+I'll be honest: walking out of the theater, I felt a little cheated. The screen gets a full-stack healthcare sidekick. Real life gets a pile of paper and a calendar reminder we keep snoozing.
 
-What we actually have is a pile of crumpled reports somewhere in a desk, a foggy memory that "something was a bit off last time," and a doctor who gets about seven minutes to figure you out. Your health data — probably the most personal thing you own — is scattered across hospital printouts, email attachments, and a random photo you snapped of a lab sheet and immediately forgot about.
+What we actually live with: crumpled printouts, a fuzzy memory that "something was a bit off last time," and a clinician who has roughly seven minutes to reverse-engineer your last twelve months. Your health data — about as personal as data gets — is scattered across hospital PDFs, email attachments, and a photo in your camera roll you took, swiped away, and never opened again.
 
-So I started building. Not the inflatable robot (not yet anyway), but something that could actually work today.
+So I built something. Not the inflatable robot — I don't have the budget or the legal team for that yet — but something that works **today**.
 
-I called it **CareMax**.
-
----
-
-## The Problem With "Normal"
-
-This happens to literally everyone:
-
-Annual check-up. Doctor glances at your numbers. "Creatinine is 98. Normal." Cool, you move on.
-
-Next year — 105. Still in range. "Normal."
-
-Year after that — 112. Still technically "normal."
-
-But nobody's connecting the dots. 88 → 98 → 105 → 112 over four years. Each time looks fine on its own. The trend, though? That's a different story. By the time someone finally flags it as "abnormal," you've missed years of catching it early.
-
-The data was always there. It's just that nobody could see it as a story instead of isolated snapshots.
-
-That's the first thing CareMax does. Snap a photo of your lab report. The AI reads it, pulls out every number, figures out that "HGB" and "血红蛋白" and "Hb" are all the same thing, and draws your trends. Across years, across hospitals, across your whole family.
-
-Suddenly that creatinine line has a slope, and it's hard to look away.
+It's called **CareMax**.
 
 ---
 
-## Getting AI to Actually Read Medical Reports
+## The Trap Hidden Inside the Word "Normal"
 
-Sounds easy, right? Just OCR the paper. Done.
+Everyone has lived this story; fewer people admit they got played.
 
-Nope.
+Annual check-up. A glance at the sheet: creatinine 98. Normal. You nod and leave.
 
-A blood test from Beijing looks nothing like one from Shenzhen. One hospital writes "WBC," another writes "白细胞," a third uses "White Blood Cells" in a completely different column layout. Some reports are nice clean PDFs. Others are blurry photos taken at 45 degrees with someone's thumb in the corner.
+Next year: 105. Still in range. Normal.
 
-We ended up building a whole pipeline. First, PaddleOCR rips through the image and spits out raw text. Then a big language model — Qwen3 — takes that text plus the original image and actually *understands* it. It knows that "135 g/L" next to "HGB" means your hemoglobin is 135. It knows an upward arrow means something's off. It even knows how to split a single long screenshot into two separate reports if that's what you uploaded.
+The year after: 112. Still "normal."
 
-And here's the fun part: if you throw 5 photos at it — 3 from one check-up, 2 from another — it figures out on its own which pages belong together. It's not just reading. It's thinking.
+But the **arc**? 88 → 98 → 105 → 112 across four years. Each snapshot looks fine. Strung together, it's a different movie. By the time someone finally says "abnormal," you've often already paid the time tax.
 
-The whole thing runs on free models. PaddleOCR and DeepSeek-OCR for the text extraction, Qwen3-VL-32B for the smart part. Total API cost per scan: zero.
+The data was always there. Nobody was reading it as a **narrative**. CareMax starts there: snap a photo of a report, pull every value, reconcile that HGB, 血红蛋白, and Hb are the same underlying thing, and draw trends across years, hospitals, and family members. Once that creatinine line has a slope, it's surprisingly hard to unsee.
 
 ---
 
-## "Hey, How's My Liver Doing?"
+## Teaching Machines to Read Lab Reports: Easy on a Slide Deck, Humbling in Production
 
-This is where it clicks.
+Sounds trivial, right? "Just OCR it."
 
-We're in the age of AI agents now. Claude, Cursor, Copilot — they write code, manage tasks, browse the web. But ask them about your cholesterol trend? Nothing. Ask them to scan a check-up report? Blank stare.
+Sure. And while we're at it, let's unify every hospital's layout, typography, and bilingual abbreviations with positive thinking.
 
-So CareMax works as an **agent skill**. You install it once:
+A Beijing panel looks nothing like a Shenzhen one. One hospital prints "WBC," another writes 白细胞, a third uses English in a column you've never seen before. Some files are civilized PDFs. Others are 45° lifestyle photography with a thumb auditioning for the corner.
+
+There's no secret sauce in the backend — just a pipeline built by **losing polite arguments with real hospital layouts**: pull text out of scans and PDFs, then read **layout**, not only numbers — how many separate reports are hiding in one long screenshot, and if you upload five photos, which ones belong to the same visit.
+
+There's also **checkpointed resume**. OCR half-finishes, the network blinks, a worker sneezes — you retry and pick up where you left off, not from zero. That's an engineering detail until you've watched users retry uploads at 11 p.m.; then it's a small act of mercy.
+
+Finally we **normalize indicators** — every eccentric label and unit gets folded into an internal dictionary so trends and search stay coherent.
+
+---
+
+## The Weather Changed: OpenClaw, CLIs, and the Skill Gold Rush
+
+If you've been anywhere near builder circles lately, you've probably heard the name **OpenClaw** — a self-hosted agent stack with a serious CLI, a first-class `skills` workflow, and public registries like **ClawHub** where capabilities install like plugins ([OpenClaw docs](https://docs.openclaw.ai/) spell out the commands and load paths). Agents aren't new; what's new is how **they've moved into the terminal and the IDE** — the places you already live — instead of dying the moment you close a chat tab.
+
+The memes caught fire in parallel: an **AI chief of staff** wiring tools into pipelines, the **one-person company** with an automation crew, and **hiring AI to run repeatable work** so you stop being the human cron job. It still sounds like late-night infomercial copy until you've shipped with it — then it's just embarrassingly practical.
+
+Vendors noticed. The pattern is blunt: ship **official CLI + skills** so **Cursor, Claude Code, Copilot, OpenClaw-class runtimes**, and the long tail of agent hosts can **invoke your product without tab-hopping and copy-paste archaeology**. A skill is starting to look like a **consulate inside your dev environment** — install once, and the agent knows the auth dance and your API surface.
+
+CareMax as a skill is half necessity — health data demands OAuth, context, and careful persistence — and half timing: **if trustworthy services are supposed to sit beside the agent you already trust**, another siloed mobile icon is a hard sell.
+
+---
+
+## "So… How's My Liver?" — A Question Most Assistants Can't Actually Answer
+
+Agents write code, wrangle tasks, browse for you — all very impressive.
+
+Ask them for your cholesterol trend or drop in a check-up photo, though, and you often get a polite shrug: **not because they're lazy, but because they're not wired to your data**.
+
+CareMax ships as an **agent skill**. Install once:
 
 ```bash
 npx skills add KittenYang/caremax-skills
 ```
 
-And now your AI assistant can talk to your health data. You're sitting in your terminal and you say:
+Under the hood it's **OAuth device flow**: when auth is needed, a browser window opens, you approve once, scripts poll until the token lands — no hand-rolled curl choreography, no user-hostile multi-step scavenger hunt.
+
+Then, from your terminal, editor, or chat:
 
 > *"Show my creatinine trend for the past year."*
 
-The agent checks if you're logged in. If not, it pops open a browser — you click "Allow" once — done. It pulls your data and shows you the chart. No app to open. No website. No password to remember.
+Want to **quick-log** today's weight or blood pressure? Same preset keys as the app's one-tap chips — the agent hits the API and you're done, no full report required.
 
-Or you drag in a photo of a check-up report:
+Uploads are **session-based**: upload → streamed OCR (progress lines as they arrive) → you review → you confirm before anything hits the database. **No confirmation, no persistence** — not virtue signaling, just the minimum respect privacy deserves.
 
-> *"Scan this for me."*
+Ask something gnarlier:
 
-It creates a session, uploads the image, runs OCR with real-time progress updates, shows you what it found — "2 reports detected, 24 indicators total, 3 abnormal" — and waits for you to say "looks good, save it." Nothing gets saved without your OK.
+> *"Have I ever had sketchy liver numbers?"*
 
-Or the killer feature:
+That's not a cute `SELECT`. The backend runs a **stacked search**: LLM keyword extraction from natural language, LIKE passes across titles and summaries, vector retrieval, then **RAG** — a plain-language answer with **citations** so you know which report each sentence grew from, not which paragraph the model hallucinated.
 
-> *"Have I ever had abnormal liver function results?"*
-
-That's not a database query. That's a natural language search across your entire medical history. It knows "liver function" means ALT, AST, GGT, bilirubin. It digs through every report you've ever uploaded and comes back with the two times your ALT was high, complete with dates, values, and what the normal range should be.
-
-That's Baymax. Not the suit — the brain.
+That's the Baymax part I'm chasing: maybe not the vinyl shell, but **a brain that earned the right to speak**.
 
 ---
 
-## One Account, Whole Family
+## One Account, Whole Family, Zero Drama
 
-Health isn't a solo thing. My mom sends me photos of her lab results asking "is this OK?" My dad's got diabetes and someone needs to watch his HbA1c. My wife wants to check if the baby's bilirubin is going down.
+Health isn't a solo sport. My mom texts lab photos asking "is this OK?" My dad's on diabetes watch. Someone always cares about bilirubin trending down.
 
-CareMax handles all of that. One account, multiple family members. Upload a report for your mom, the system keeps her indicators separate from yours. Say "show my mom's blood sugar trend" and it knows who you mean.
-
----
-
-## Sessions, Not Files
-
-Here's a design choice I'm proud of.
-
-Old way: you upload a file, system creates a record, done. Except — what if you upload 3 photos of the same report? What if one long screenshot has 2 different reports in it? What if you started uploading but closed the browser halfway through?
-
-New way: everything is a **session**. You upload 3 photos, they all go into one session. The AI analyzes all of them together, figures out there are actually 2 reports, shows you the results, you confirm, and both reports save atomically. If you close the browser before confirming, the session is still there — just pick up where you left off next time.
-
-Delete a session? Everything goes away — the files, the reports, the indicators. Clean. Atomic. No orphaned data floating around.
+CareMax supports **family members** with clean separation. Say "show my mom's glucose trend" and it knows who you mean — **slightly more reliable than the family group chat where everyone read your message and collectively decided to think about it later**.
 
 ---
 
-## Why a Skill Instead of an App
+## Sessions, Not One-Shot File Uploads
 
-We actually did build a web app. Charts, dashboards, the whole thing. But then I realized something:
+Most products treat upload as **one file, one row**. That falls apart fast — three screenshots of the same report, two reports in one panoramic image, tab closed mid-upload.
 
-**Nobody opens a health tracking app on purpose.**
-
-You don't wake up and think "let me check my health dashboard." But you do ask questions: "What was my cholesterol?" "Is this report normal?" "How's dad's kidney function doing?"
-
-By making CareMax an agent skill, it lives wherever your AI assistant lives — your terminal, your editor, your chat. The data is always one question away. Not one app-download-sign-up-find-the-right-page away.
-
-Works with Claude Code, Cursor, Copilot, and 40+ other agents. Same skill, same data, everywhere.
+CareMax runs the whole upload as one **session** — multiple images, one pass: detect report groups, structure, review, then **atomic confirm**. Close the tab early? The session waits; you resume. Delete a session? Files, derived reports, indicators go together — **no mystery cruft floating in the database**.
 
 ---
 
-## What Baymax Got Right
+## Why a Skill Instead of Another App You'll Never Open
 
-Baymax wasn't cool because of the armor or the rocket fist. He was cool because he was just... there. He already knew your history. He didn't need you to open an app or explain what happened last time. He just cared.
+We built the web app too — charts, dashboards, the respectable adult version.
 
-We're not fully there yet. You still need to upload your reports (for now). But the direction is right:
+Then a boring truth landed: **almost nobody wakes up craving a "health tracking" icon**. People ask questions: what was my last LDL? is this sheet alarming? how's dad's kidney function trending?
 
-**Your health data should be alive — something you can talk to, ask questions about, track over time, share with family — from any AI interface.**
+Embedding CareMax in an agent puts the data **where you already work** — terminal, IDE, chat. One sentence away, not download → sign up → find the right screen → reset password → remember why you opened the app. It also lines up with the wave above: **your business rides along with the agent**, instead of begging users to chase another destination app.
 
-Not in a drawer. Not locked in some hospital system. Not rotting in your camera roll.
-
-Alive. And always one question away.
+Claude Code, Cursor, Copilot, OpenClaw, and 40+ other agent environments can use the same skill against the same account. Same data, same questions, **wherever your attention already is**.
 
 ---
 
-*CareMax is open source. Try it:*
+## What Baymax Actually Got Right
+
+Baymax wasn't cool because of the armor or the rocket fist. He was cool because he was **already there** — history loaded, tone calibrated, no lecture about which app to open first.
+
+We're not at full score yet. You still upload your own reports (for now). Nobody gets a hug from the API. But the vector I'm betting on is simple:
+
+**Health data should be alive — something you can talk to, interrogate, trend, and share with family — reachable from the AI surface you already use.**
+
+Not in a drawer. Not locked in a hospital silo. Not composting next to food photos in your camera roll.
+
+Alive. And one honest question away.
+
+---
+
+*CareMax is open source. Start here:*
 
 ```bash
 npx skills add KittenYang/caremax-skills
@@ -142,4 +142,4 @@ npx skills add KittenYang/caremax-skills
 
 *Then tell your agent: "Show my health indicators."*
 
-*Baymax would approve.*
+*Baymax nods on screen. In the real world, we'll settle for getting this part right first.*
