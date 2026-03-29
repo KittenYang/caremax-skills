@@ -14,7 +14,7 @@ license: MIT
 4. **BASE URL DETECTION**: If the user specifies a custom URL (local dev 默认 `http://localhost:8788`，须与后端 wrangler `[dev]` 端口一致), you MUST:
    - Pass it as the first argument to `auth-flow.sh`: `bash auth-flow.sh http://localhost:8788`
    - After auth completes, `credentials.json` will have `base_url` set to that URL
-   - All subsequent `api-call.sh`, `upload.sh`, `ocr-stream.sh` will auto-use it
+   - All subsequent `api-call.sh`, `list-system-presets.sh`, `quick-log.sh`, `upload.sh`, `ocr-stream.sh` will auto-use it
    - Look for URL patterns like `http://localhost:XXXX`, `caremax(http://...)`, or explicit "use local" / "use localhost"
 
 ## Scripts
@@ -32,6 +32,24 @@ bash ~/.claude/skills/caremax-auth/scripts/api-call.sh GET "/api/skill/indicator
 ```
 
 If it returns `{"error":"no_credentials",...}` → run `auth-flow.sh` (see below), then retry.
+
+### list-system-presets.sh — 当前账号可快捷记录的指标列表
+
+与 App **「快捷记一笔」** 芯片一致：先看有哪些 `preset_key` / 显示名 / 默认单位，再调用 `quick-log.sh`。
+
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/list-system-presets.sh
+```
+
+### quick-log.sh — 快捷记一笔（单条数值）
+
+```bash
+bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh <preset_key> <value>
+bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh weight 72.5 --unit kg --date 2026-03-29
+bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh height 175 --member <family_member_uuid>
+```
+
+可选参数：`--unit`、`--date`（`YYYY-MM-DD`）、`--member`（家庭成员 UUID）。底层走 `api-call.sh`，自动带用户 OAuth token。
 
 ### upload.sh — Upload files (images/PDFs) to CareMax
 
@@ -111,6 +129,13 @@ bash ~/.claude/skills/caremax-auth/scripts/refresh-token.sh
 ```
 
 ## Standard Workflow
+
+### Quick vitals (快捷记一笔)
+```
+User wants to log height / weight / etc.
+  → list-system-presets.sh  →  pick preset_key from JSON
+  → quick-log.sh <preset_key> <value> [--unit ...] [--date ...] [--member ...]
+```
 
 ### Query data
 ```

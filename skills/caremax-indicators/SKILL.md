@@ -19,14 +19,16 @@ This skill also covers the **agent/skill** indicator endpoints under `/api/skill
 
 ## Prerequisites — Auto-Auth (MANDATORY)
 
-All API calls below use `api-call.sh` from the caremax-auth skill. It handles token check + refresh automatically.
+Use scripts from **caremax-auth** (same paths as below). They handle token check + refresh.
 
 ```bash
-# shorthand used in all examples below
+# shorthand for /api/skill/* and other JSON calls
 APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
+LIST_PRESETS="bash ~/.claude/skills/caremax-auth/scripts/list-system-presets.sh"
+QUICK_LOG="bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh"
 ```
 
-If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`** in background. If the user specified a custom URL (e.g., `http://localhost:8788`), pass it as the argument. It opens the browser and auto-polls. Tell the user "please authorize in browser". Once it outputs `authorized`, retry the api-call.
+If any script returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`** in background. If the user specified a custom URL (e.g., `http://localhost:8788`), pass it as the argument. It opens the browser and auto-polls. Tell the user "please authorize in browser". Once it outputs `authorized`, retry.
 
 ## List All Indicators
 
@@ -56,45 +58,43 @@ Returns time-series: `date`, `value`, `unit`, `reference_range`, `is_abnormal` (
 
 ## Quick log — same feature as 「快捷记一笔」 (authenticated user only)
 
-Use the **same OAuth user token** as everywhere else (`api-call.sh`). This is for **normal users** logging everyday numbers, not for any privileged or server-side configuration.
+**Prefer the dedicated scripts** (wrap `api-call.sh` with the same OAuth user token). Do not hand-roll `curl`.
 
-**Typical user intents:** “记一下体重 70”“今天身高 175”“帮妈妈记血压 120/80” — always **first fetch the preset list** so you use a valid `preset_key` and optional `member_id` for family members.
+**Typical user intents:** “记一下体重 70”“今天身高 175”“帮妈妈记血压 120/80” — always **run `list-system-presets.sh` first** so you use a valid `preset_key` and know default units; use `--member` when logging for a family profile.
 
 ### 1) List what the user can quick-log right now
 
-Returns the active preset chips (display names + keys + default units). **Do not assume** a fixed list of metrics in prose; the API is the source of truth.
-
 ```bash
-$APICALL GET /api/indicators/system-presets
+$LIST_PRESETS
 ```
 
-Response: `presets[]` — use `preset_key` for the next call; show `display_name` / `canonical_unit` to the user when confirming.
+Response: `presets[]` — use `preset_key` for `quick-log.sh`; show `display_name` / `canonical_unit` when confirming with the user. **Do not assume** a fixed list of metrics in prose.
 
 ### 2) Save one value
 
 ```bash
-$APICALL POST /api/indicators/quick-log '{
-  "preset_key": "weight",
-  "value": "72.5",
-  "unit": "kg",
-  "test_date": "2026-03-28",
-  "member_id": "optional-family-member-uuid"
-}'
+$QUICK_LOG weight 72.5 --unit kg --date 2026-03-28
+$QUICK_LOG height 175 --member <family_member_uuid>
 ```
 
-- Required: `preset_key`, `value`. `unit` can be omitted if the preset defines a default. `test_date` defaults to today if omitted.
-- `member_id`: omit for the default profile; set when logging for another family member (same idea as other member-scoped calls).
+- Positional: `preset_key`, `value` (required).
+- Optional: `--unit`, `--date YYYY-MM-DD` (omit date → server default today), `--member` (family member UUID).
+
+### Lower-level equivalent (only if you need custom JSON)
+
+```bash
+$APICALL GET /api/indicators/system-presets
+$APICALL POST /api/indicators/quick-log '{"preset_key":"weight","value":"72.5","unit":"kg","test_date":"2026-03-28","member_id":"..."}'
+```
 
 ### Recommended workflow (quick log)
 
 ```bash
 # User: "帮我记身高" / "quick log my weight"
-# 1) Show friendly names from presets
-$APICALL GET /api/indicators/system-presets
-# 2) Match user wording to the right preset_key (or ask which line if ambiguous)
-# 3) POST quick-log with value (+ date / member if they specified)
-$APICALL POST /api/indicators/quick-log '{"preset_key":"...","value":"...","test_date":"...","member_id":"..."}'
-# 4) Confirm in natural language with value, unit, date, and whose profile
+$LIST_PRESETS
+# Match user wording to preset_key (or ask if ambiguous)
+$QUICK_LOG <preset_key> <value> [--date ...] [--member ...]
+# Confirm aloud: value, unit, date, whose profile
 ```
 
 ## Get Trends by Category

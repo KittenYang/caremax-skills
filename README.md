@@ -76,6 +76,8 @@ All scripts are in `skills/caremax-auth/scripts/`:
 | Script | Purpose |
 |--------|---------|
 | `auth-flow.sh [base_url]` | One-shot auth: browser + auto-poll + save token |
+| `list-system-presets.sh` | Quick-vitals: list preset keys / labels (same as app chips) |
+| `quick-log.sh <key> <value> [--unit] [--date] [--member]` | Quick-vitals: save one reading |
 | `upload.sh <files...>` | Upload files → create session |
 | `ocr-stream.sh <session_id>` | OCR with real-time SSE progress |
 | `api-call.sh <method> <path> [body]` | Authenticated API call (auto-refresh) |
