@@ -71,7 +71,7 @@ After installation, just ask your agent:
 
 ## Scripts
 
-All scripts are in `skills/caremax-auth/scripts/`:
+All scripts live in `skills/caremax-auth/scripts/`. When running them, **`cd` into that skill folder** and use `./scripts/<name>.sh`. From another installed skill next to it (e.g. `caremax-indicators`), use `../caremax-auth/scripts/<name>.sh`.
 
 | Script | Purpose |
 |--------|---------|

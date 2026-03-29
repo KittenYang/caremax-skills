@@ -6,7 +6,7 @@ license: MIT
 
 # CareMax Upload & OCR
 
-> **Requires `caremax-auth` skill.** If `~/.claude/skills/caremax-auth/` doesn't exist, tell the user to install it first.
+> **Requires `caremax-auth` as a sibling directory** (`../caremax-auth/`). If missing, tell the user to install caremax-auth first (e.g. `npx skills add KittenYang/caremax-skills`).
 
 Upload medical report files (PDF, JPG, PNG, HEIC) and extract structured data via AI-powered OCR.
 
@@ -17,12 +17,12 @@ Upload medical report files (PDF, JPG, PNG, HEIC) and extract structured data vi
 ## Prerequisites — Auto-Auth (MANDATORY)
 
 ```bash
-APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
-UPLOAD="bash ~/.claude/skills/caremax-auth/scripts/upload.sh"
-OCRSTREAM="bash ~/.claude/skills/caremax-auth/scripts/ocr-stream.sh"
+APICALL="bash ../caremax-auth/scripts/api-call.sh"
+UPLOAD="bash ../caremax-auth/scripts/upload.sh"
+OCRSTREAM="bash ../caremax-auth/scripts/ocr-stream.sh"
 ```
 
-If any script returns `no_credentials` → run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`.
+If any script returns `no_credentials` → run `bash ../caremax-auth/scripts/auth-flow.sh [base_url]` (from this skill’s root, sibling of `caremax-auth/`).
 
 ## Step 1: Upload (creates session)
 

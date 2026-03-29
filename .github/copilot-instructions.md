@@ -45,10 +45,13 @@ GET /api/skill/members  → list family members (use memberId to filter queries)
 ```
 
 ### User app — quick vitals (OAuth user token, not `/api/skill/*`)
-Same feature as in-app 「快捷记一笔」: use **caremax-auth scripts** (do not hand-roll curl):
+Same feature as in-app 「快捷记一笔」: use **caremax-auth scripts** (do not hand-roll curl). Paths are **relative to skill roots** (no `~/.claude`):
 ```
-bash skills/caremax-auth/scripts/list-system-presets.sh
-bash skills/caremax-auth/scripts/quick-log.sh <preset_key> <value> [--unit U] [--date YYYY-MM-DD] [--member uuid]
+# from caremax-auth/ directory:
+bash ./scripts/list-system-presets.sh
+bash ./scripts/quick-log.sh <preset_key> <value> [--unit U] [--date YYYY-MM-DD] [--member uuid]
+# from any sibling caremax-* skill (e.g. caremax-indicators/):
+bash ../caremax-auth/scripts/list-system-presets.sh
 ```
 Underlying JSON routes (for reference only): `GET /api/indicators/system-presets`, `POST /api/indicators/quick-log`. **Use presets response as the allowed list** — do not hardcode metric names.
 

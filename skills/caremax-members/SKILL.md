@@ -6,17 +6,17 @@ license: MIT
 
 # CareMax Family Members
 
-> **Requires `caremax-auth` skill.** If `~/.claude/skills/caremax-auth/` doesn't exist, tell the user to install it first.
+> **Requires `caremax-auth` as a sibling directory** (`../caremax-auth/`). If missing, tell the user to install caremax-auth first (e.g. `npx skills add KittenYang/caremax-skills`).
 
 List and work with family member profiles. CareMax supports tracking health data for multiple family members.
 
 ## Prerequisites — Auto-Auth (MANDATORY)
 
 ```bash
-APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
+APICALL="bash ../caremax-auth/scripts/api-call.sh"
 ```
 
-If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`** in background. If the user specified a custom URL, pass it as the argument.
+If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ../caremax-auth/scripts/auth-flow.sh [base_url]`** in background (from this skill’s root). If the user specified a custom URL, pass it as the argument.
 
 ## List Members
 

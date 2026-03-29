@@ -20,6 +20,7 @@ This repository contains **CareMax Health** skills for AI coding agents. When ed
 - Write descriptions in **third person** (e.g. "Use when..." not "You can use when...").
 - Be concise; avoid restating general API docs. Focus on correct usage, authentication flow, and error handling.
 - When adding a new skill: create `skills/<skill-name>/SKILL.md`, then update README.md "Skills" table and `skills/llms.txt`.
+- **Script paths in SKILL.md:** use **product-agnostic relative paths** — `./scripts/...` inside `caremax-auth`, and `../caremax-auth/scripts/...` from sibling `caremax-*` skills. Do **not** hardcode `~/.claude/skills/` (users may use `~/.agents/skills/` or other installs).
 - **Agent-facing** indicator/record helpers often use `/api/skill/*` with OAuth (`api-call.sh`). **User app** features may use other authenticated JSON routes (e.g. quick vitals under `/api/indicators/*`).
 - **Do not document privileged operator or admin-only APIs in this public repository.** Keep deployer runbooks in private docs or the application repo if appropriate.
 - Authentication for end users uses OAuth Device Flow — do not hardcode user tokens in skills.

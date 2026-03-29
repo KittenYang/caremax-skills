@@ -10,43 +10,48 @@ license: MIT
 
 1. This is a **silent prerequisite** for ALL caremax-* skills. Do NOT ask "do you want to authenticate?" — just execute.
 2. **NEVER write your own curl commands**. Only use the scripts below.
-3. **NEVER split auth into multiple steps manually**. Use `auth-flow.sh` — it opens browser AND auto-polls until done.
+3. **NEVER split auth into multiple steps manually**. Use `./scripts/auth-flow.sh` (from this skill root) — it opens browser AND auto-polls until done.
 4. **BASE URL DETECTION**: If the user specifies a custom URL (local dev 默认 `http://localhost:8788`，须与后端 wrangler `[dev]` 端口一致), you MUST:
-   - Pass it as the first argument to `auth-flow.sh`: `bash auth-flow.sh http://localhost:8788`
+   - Pass it as the first argument: `bash ./scripts/auth-flow.sh http://localhost:8788` (run from **this** skill root — see path convention below)
    - After auth completes, `credentials.json` will have `base_url` set to that URL
    - All subsequent `api-call.sh`, `list-system-presets.sh`, `quick-log.sh`, `upload.sh`, `ocr-stream.sh` will auto-use it
    - Look for URL patterns like `http://localhost:XXXX`, `caremax(http://...)`, or explicit "use local" / "use localhost"
 
 ## Scripts
 
-All scripts are at `~/.claude/skills/caremax-auth/scripts/`.
+### Path convention (no `~/.claude` — product-agnostic)
+
+- **This skill (`caremax-auth`):** run commands with **current working directory** = this folder (the directory that contains `SKILL.md` and `scripts/`). Invoke scripts as **`./scripts/<name>.sh`**.
+- **Other `caremax-*` skills** sit as **sibling directories** next to `caremax-auth` (e.g. `skills/caremax-indicators/` and `skills/caremax-auth/` in the repo, or `~/.agents/skills/<name>/` after install). From those folders, call auth as **`../caremax-auth/scripts/<name>.sh`**.
+
+Credentials file location is unchanged: **`~/.caremax/credentials.json`** (not under any product’s config dir).
 
 ### api-call.sh — Make authenticated API calls (PRIMARY TOOL)
 
 This is what you should use for all API calls. It auto-checks token, auto-refreshes if expired.
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/api-call.sh GET /api/skill/indicators
-bash ~/.claude/skills/caremax-auth/scripts/api-call.sh POST /api/skill/records/search '{"query":"血常规"}'
-bash ~/.claude/skills/caremax-auth/scripts/api-call.sh GET "/api/skill/indicators/trend?id=xxx"
+bash ./scripts/api-call.sh GET /api/skill/indicators
+bash ./scripts/api-call.sh POST /api/skill/records/search '{"query":"血常规"}'
+bash ./scripts/api-call.sh GET "/api/skill/indicators/trend?id=xxx"
 ```
 
-If it returns `{"error":"no_credentials",...}` → run `auth-flow.sh` (see below), then retry.
+If it returns `{"error":"no_credentials",...}` → run `./scripts/auth-flow.sh` (see below), then retry.
 
 ### list-system-presets.sh — 当前账号可快捷记录的指标列表
 
 与 App **「快捷记一笔」** 芯片一致：先看有哪些 `preset_key` / 显示名 / 默认单位，再调用 `quick-log.sh`。
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/list-system-presets.sh
+bash ./scripts/list-system-presets.sh
 ```
 
 ### quick-log.sh — 快捷记一笔（单条数值）
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh <preset_key> <value>
-bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh weight 72.5 --unit kg --date 2026-03-29
-bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh height 175 --member <family_member_uuid>
+bash ./scripts/quick-log.sh <preset_key> <value>
+bash ./scripts/quick-log.sh weight 72.5 --unit kg --date 2026-03-29
+bash ./scripts/quick-log.sh height 175 --member <family_member_uuid>
 ```
 
 可选参数：`--unit`、`--date`（`YYYY-MM-DD`）、`--member`（家庭成员 UUID）。底层走 `api-call.sh`，自动带用户 OAuth token。
@@ -54,8 +59,8 @@ bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh height 175 --member <fam
 ### upload.sh — Upload files (images/PDFs) to CareMax
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/upload.sh /path/to/report.jpg
-bash ~/.claude/skills/caremax-auth/scripts/upload.sh /path/to/img1.jpg /path/to/img2.png
+bash ./scripts/upload.sh /path/to/report.jpg
+bash ./scripts/upload.sh /path/to/img1.jpg /path/to/img2.png
 ```
 
 Returns: `{"files":[{"id":"...","member_id":"...","original_name":"..."}]}`
@@ -67,9 +72,9 @@ Use the returned `id` values as `fileIds` for `ocr-stream.sh`.
 ### download-file.sh — Download a source file from a session
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/download-file.sh <file_id> [output_path]
+bash ./scripts/download-file.sh <file_id> [output_path]
 # Example:
-bash ~/.claude/skills/caremax-auth/scripts/download-file.sh abc-123 ~/Downloads/report.jpg
+bash ./scripts/download-file.sh abc-123 ~/Downloads/report.jpg
 ```
 
 Get `file_id` from session detail (`source_files[].id` in reports, or `files[].id` in session).
@@ -77,7 +82,7 @@ Get `file_id` from session detail (`source_files[].id` in reports, or `files[].i
 ### ocr-stream.sh — OCR with real-time SSE progress (for caremax-ocr skill)
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/ocr-stream.sh <session_id>
+bash ./scripts/ocr-stream.sh <session_id>
 ```
 
 Outputs one JSON per line as OCR progresses. Last line (step=done) has the full results.
@@ -92,10 +97,10 @@ Handles errors gracefully:
 
 ```bash
 # Default (production)
-bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh
+bash ./scripts/auth-flow.sh
 
 # Custom base URL (localhost / staging)
-bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh http://localhost:8788
+bash ./scripts/auth-flow.sh http://localhost:8788
 ```
 
 This script does EVERYTHING in one shot:
@@ -108,7 +113,7 @@ Output when done: `{"status":"authorized","access_token":"sk-caremax-...","base_
 
 **Run this in the background** so you can tell the user what's happening while it polls:
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh &
+bash ./scripts/auth-flow.sh &
 ```
 Then tell the user: "I've opened the authorization page in your browser. Please log in and click Allow. I'll detect it automatically."
 
@@ -117,7 +122,7 @@ Wait for the background job to finish — it will output the result.
 ### check-token.sh — Check token status (used internally by api-call.sh)
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/check-token.sh
+bash ./scripts/check-token.sh
 ```
 
 Output: `{"status":"valid"|"expired"|"missing", ...}`
@@ -125,7 +130,7 @@ Output: `{"status":"valid"|"expired"|"missing", ...}`
 ### refresh-token.sh — Refresh expired token (used internally by api-call.sh)
 
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/refresh-token.sh
+bash ./scripts/refresh-token.sh
 ```
 
 ## Standard Workflow
@@ -133,20 +138,20 @@ bash ~/.claude/skills/caremax-auth/scripts/refresh-token.sh
 ### Quick vitals (快捷记一笔)
 ```
 User wants to log height / weight / etc.
-  → list-system-presets.sh  →  pick preset_key from JSON
-  → quick-log.sh <preset_key> <value> [--unit ...] [--date ...] [--member ...]
+  → ./scripts/list-system-presets.sh  →  pick preset_key from JSON
+  → ./scripts/quick-log.sh <preset_key> <value> [--unit ...] [--date ...] [--member ...]
 ```
 
 ### Query data
 ```
 User asks about health data
-  → run: api-call.sh GET /api/skill/xxx
+  → run: ./scripts/api-call.sh GET /api/skill/xxx
       ├── token valid → returns data → done
       ├── token expired → auto-refreshes → returns data → done
       └── no token → returns error
-          → run: auth-flow.sh [base_url] (background)
+          → run: ./scripts/auth-flow.sh [base_url] (background)
           → auth-flow.sh auto-polls and saves token
-          → retry: api-call.sh → returns data → done
+          → retry: ./scripts/api-call.sh → returns data → done
 ```
 
 ### Upload + OCR (save medical reports from images)
@@ -155,7 +160,7 @@ This is a **session-based multi-step workflow**. One upload session groups all f
 
 #### Step 1: Upload → creates a session
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/upload.sh /path/to/image1.jpg /path/to/image2.jpg
+bash ./scripts/upload.sh /path/to/image1.jpg /path/to/image2.jpg
 ```
 Returns:
 ```json
@@ -165,7 +170,7 @@ Save `session_id` — it's used for all subsequent steps.
 
 #### Step 2: OCR (with real-time progress)
 ```bash
-bash ~/.claude/skills/caremax-auth/scripts/ocr-stream.sh <session_id>
+bash ./scripts/ocr-stream.sh <session_id>
 ```
 
 Each output line is a JSON progress event. Relay to the user:
@@ -201,7 +206,7 @@ Wait for user to say 确认/保存/OK.
 
 #### Step 4: Confirm and save
 ```bash
-$APICALL POST /api/skill/sessions/<session_id>/confirm '{"reports":[<reports array from step 2>]}'
+bash ./scripts/api-call.sh POST /api/skill/sessions/<session_id>/confirm '{"reports":[<reports array from step 2>]}'
 ```
 
 Returns: `{"success":true,"message":"2 report(s) saved","recordIds":["uuid1","uuid2"]}`
@@ -210,13 +215,13 @@ After success: "已保存 N 份报告。"
 
 ### Query sessions
 ```bash
-$APICALL GET /api/skill/sessions
-$APICALL GET "/api/skill/sessions/<session_id>"
-$APICALL GET "/api/skill/sessions/<session_id>/status"   # lightweight progress polling
+bash ./scripts/api-call.sh GET /api/skill/sessions
+bash ./scripts/api-call.sh GET "/api/skill/sessions/<session_id>"
+bash ./scripts/api-call.sh GET "/api/skill/sessions/<session_id>/status"   # lightweight progress polling
 ```
 
 ### Delete session (undo entire upload)
 ```bash
-$APICALL DELETE /api/skill/sessions/<session_id>
+bash ./scripts/api-call.sh DELETE /api/skill/sessions/<session_id>
 ```
 Deletes the session + all files + all reports atomically.

@@ -6,7 +6,7 @@ license: MIT
 
 # CareMax Health Indicators
 
-> **Requires `caremax-auth` skill.** All scripts (api-call.sh, auth-flow.sh, etc.) live in caremax-auth. If missing, tell the user: "Please install caremax-auth first: `npx skills add KittenYang/caremax-skills` and select caremax-auth."
+> **Requires `caremax-auth` as a sibling directory** (`../caremax-auth/`, same layout as `skills/caremax-auth` + `skills/caremax-indicators` in this repo, or under `~/.agents/skills/`). If missing: `npx skills add KittenYang/caremax-skills` and select caremax-auth.
 
 ## What end users can do (plain language)
 
@@ -19,16 +19,16 @@ This skill also covers the **agent/skill** indicator endpoints under `/api/skill
 
 ## Prerequisites — Auto-Auth (MANDATORY)
 
-Use scripts from **caremax-auth** (same paths as below). They handle token check + refresh.
+**Working directory:** this skill’s root folder (`caremax-indicators/`, sibling of `caremax-auth/`). Scripts in auth are reached with **`../caremax-auth/scripts/`**.
 
 ```bash
-# shorthand for /api/skill/* and other JSON calls
-APICALL="bash ~/.claude/skills/caremax-auth/scripts/api-call.sh"
-LIST_PRESETS="bash ~/.claude/skills/caremax-auth/scripts/list-system-presets.sh"
-QUICK_LOG="bash ~/.claude/skills/caremax-auth/scripts/quick-log.sh"
+# shorthand — run from caremax-indicators/
+APICALL="bash ../caremax-auth/scripts/api-call.sh"
+LIST_PRESETS="bash ../caremax-auth/scripts/list-system-presets.sh"
+QUICK_LOG="bash ../caremax-auth/scripts/quick-log.sh"
 ```
 
-If any script returns `{"error":"no_credentials",...}` → **immediately run `bash ~/.claude/skills/caremax-auth/scripts/auth-flow.sh [base_url]`** in background. If the user specified a custom URL (e.g., `http://localhost:8788`), pass it as the argument. It opens the browser and auto-polls. Tell the user "please authorize in browser". Once it outputs `authorized`, retry.
+If any script returns `{"error":"no_credentials",...}` → **immediately run `bash ../caremax-auth/scripts/auth-flow.sh [base_url]`** in background. If the user specified a custom URL (e.g., `http://localhost:8788`), pass it as the argument. It opens the browser and auto-polls. Tell the user "please authorize in browser". Once it outputs `authorized`, retry.
 
 ## List All Indicators
 
