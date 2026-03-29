@@ -45,8 +45,9 @@ GET /api/skill/members  → list family members (use memberId to filter queries)
 ```
 
 ### User app — quick vitals (OAuth user token, not `/api/skill/*`)
+Same feature as in-app 「快捷记一笔」: users can log one-off everyday readings (e.g. height, weight, BP — **use `system-presets` response as the allowed list**, do not hardcode).
 ```
-GET  /api/indicators/system-presets   → active presets for “快捷记一笔” chips
+GET  /api/indicators/system-presets   → labels + keys the user may log now
 POST /api/indicators/quick-log        → single data point (preset_key, value, optional member_id, test_date)
 ```
 
@@ -57,3 +58,4 @@ POST /api/indicators/quick-log        → single data point (preset_key, value, 
 - Upload supports PDF, JPG, PNG formats
 - OCR is a two-step process: upload first, then OCR with the returned file IDs
 - Display indicator values with units and reference ranges for clarity
+- For quick log: explain in plain language (“记一笔体重”) and always align `preset_key` with `GET /api/indicators/system-presets`

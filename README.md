@@ -22,7 +22,7 @@ Settings > Rules > Add Remote Rule (GitHub) > KittenYang/caremax-skills
 | Skill | Required | Description |
 |-------|----------|-------------|
 | **caremax-auth** | **YES** | OAuth Device Flow auth + all shared scripts (api-call, upload, ocr-stream, download) |
-| **caremax-indicators** | no | Health indicator queries, trends, categories, and in-app quick vitals logging (OAuth user token) |
+| **caremax-indicators** | no | Indicators: lists, trends, categories; **quick daily vitals** (e.g. height, weight — same as in-app 「快捷记一笔」, OAuth user) |
 | **caremax-records** | no | Medical record queries and semantic search |
 | **caremax-ocr** | no | Session-based upload, OCR, review, and confirm |
 | **caremax-members** | no | Family member management |
