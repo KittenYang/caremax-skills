@@ -15,6 +15,36 @@ npx skills add https://github.com/KittenYang/caremax-skills
 Settings > Rules > Add Remote Rule (GitHub) > KittenYang/caremax-skills
 ```
 
+## Install from ClawHub (OpenClaw)
+
+Skills are listed on [ClawHub](https://clawhub.ai/) under the slugs below. With **OpenClaw**:
+
+```bash
+openclaw skills install caremax-auth
+openclaw skills install caremax-ocr
+openclaw skills install caremax-indicators
+openclaw skills install caremax-members
+openclaw skills install caremax-records
+```
+
+With the **ClawHub CLI** (installs to `skills/<slug>/` in your workspace by default):
+
+```bash
+npx clawhub@latest install caremax-auth
+npx clawhub@latest install caremax-ocr
+npx clawhub@latest install caremax-indicators
+npx clawhub@latest install caremax-members
+npx clawhub@latest install caremax-records
+```
+
+Install all five in one go:
+
+```bash
+for s in caremax-auth caremax-ocr caremax-indicators caremax-members caremax-records; do
+  npx clawhub@latest install "$s"
+done
+```
+
 ## Skills
 
 > **caremax-auth is REQUIRED.** All other skills depend on its scripts for authentication and API calls. Install it first.
