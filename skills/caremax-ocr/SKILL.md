@@ -1,6 +1,6 @@
 ---
 name: caremax-ocr
-description: "Upload medical reports and run OCR recognition via CareMax Health API. Session-based: upload creates a session, OCR processes all files in the session, confirm saves all reports atomically. Also handles resuming incomplete sessions (stuck uploads, pending confirmations). Trigger terms: upload report, scan report, OCR, recognize report, extract indicators, health report image, check-up photo, upload, scan, extract, resume upload, continue upload, pending session, unfinished upload, 继续上传, 未完成."
+description: "Upload medical reports and run OCR recognition via CareMax Health API. After upload succeeds, agents MUST immediately run OCR on the same session unless the user explicitly asked for upload-only. Session-based: upload creates a session, OCR processes all files, confirm saves all reports atomically. Resumes incomplete sessions. Trigger terms: upload report, scan report, OCR, recognize report, extract indicators, health report image, check-up photo, upload, scan, extract, resume upload, continue upload, pending session, unfinished upload, 继续上传, 未完成."
 license: MIT
 ---
 
@@ -13,6 +13,13 @@ Upload medical report files (PDF, JPG, PNG, HEIC) and extract structured data vi
 **Session-based workflow**: upload → OCR → review → confirm. All operations are on a single session.
 
 **Checkpoint & resume**: Every pipeline step saves progress to the database. If OCR fails mid-way (LLM timeout, worker crash, network error), retrying automatically resumes from the last checkpoint — no work is lost.
+
+## Agent default behavior (MANDATORY)
+
+1. **Upload and OCR are one continuous workflow.** When the user uploads report files (or asks you to upload/扫描/识别体检报告等), after `$UPLOAD` returns successfully you **must in the same turn** run `$OCRSTREAM <session_id>` using the returned `session_id`. **Do not** end the task after `upload.sh` alone.
+2. **Upload-only exception:** Skip immediate OCR only if the user **explicitly** asked to upload without recognition (e.g. 只上传、不要识别、别跑 OCR、只存文件). If unclear, default to running OCR after upload.
+3. **Progress:** Stream each SSE line to the user as it arrives (normalize / ocr / structure / …).
+4. **After `step=done`:** Always continue to Step 3 (review). **Do not** auto-call confirm — wait for user approval before Step 4.
 
 ## Prerequisites — Auto-Auth (MANDATORY)
 
