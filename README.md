@@ -121,21 +121,5 @@ All scripts live in `skills/caremax-auth/scripts/`. When running them, **`cd` in
 | `check-token.sh` | Check token status |
 | `refresh-token.sh` | Refresh expired token |
 
-## Local Development
-
-```bash
-# Point to local backend
-bash auth-flow.sh http://localhost:8788
-# All subsequent calls auto-use localhost
-```
-
-## API
-
-Endpoints, request/response shapes, and auth flows are defined in the **[OpenAPI specification](https://api.caremax.ai/openapi.yaml)** — use it as the single source of truth.
-
-- Base URL (production): `https://api.caremax.ai`
-- Plugin discovery: `https://api.caremax.ai/.well-known/ai-plugin.json`
-
-## License
 
 MIT
