@@ -30,6 +30,7 @@ publish() {
 
 # Auth first — other skills document it as prerequisite
 publish caremax-auth       caremax-auth       "CareMax Auth"
+publish caremax-chat       caremax-chat       "CareMax Chat"
 publish caremax-ocr        caremax-ocr        "CareMax OCR"
 publish caremax-indicators caremax-indicators "CareMax Indicators"
 publish caremax-members    caremax-members    "CareMax Members"

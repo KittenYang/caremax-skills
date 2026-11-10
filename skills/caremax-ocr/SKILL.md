@@ -1,272 +1,113 @@
 ---
 name: caremax-ocr
-description: "Upload medical reports and run OCR recognition via CareMax Health API. After upload succeeds, agents MUST immediately run OCR on the same session unless the user explicitly asked for upload-only. Session-based: upload creates a session, OCR processes all files, confirm saves all reports atomically. Resumes incomplete sessions. Trigger terms: upload report, scan report, OCR, recognize report, extract indicators, health report image, check-up photo, upload, scan, extract, resume upload, continue upload, pending session, unfinished upload, 继续上传, 未完成."
+description: "Upload medical reports and run CareMax OCR. After upload, queue OCR in the same turn unless the user asked for upload only. Covers unfinished tasks versus paginated history, review, async confirm (200 or 202 saving), and updates of already saved reports via POST /records. Trigger terms: upload report, scan report, OCR, 继续上传, 未完成, 上传待处理, 全部任务, confirm, 文字报告, 指标报告."
 license: MIT
 ---
 
-# CareMax Upload & OCR
+# CareMax upload and OCR
 
-> **Requires `caremax-auth` as a sibling directory** (`../caremax-auth/`). If missing, tell the user to install caremax-auth first (e.g. `npx skills add KittenYang/caremax-skills`).
+> Requires sibling `caremax-auth`. If it is missing: `npx skills add KittenYang/caremax-skills`.
 
-Upload medical report files (PDF, JPG, PNG, HEIC) and extract structured data via AI-powered OCR.
+Session workflow: upload → queue OCR → poll status → review → confirm once. Contracts: [../caremax-auth/references/http-contracts.md](../caremax-auth/references/http-contracts.md).
 
-**Session-based workflow**: upload → OCR → review → confirm. All operations are on a single session.
-
-**Checkpoint & resume**: Every pipeline step saves progress to the database. If OCR fails mid-way (LLM timeout, worker crash, network error), retrying automatically resumes from the last checkpoint — no work is lost.
-
-## Agent default behavior (MANDATORY)
-
-1. **Upload and OCR are one continuous workflow.** When the user uploads report files (or asks you to upload/扫描/识别体检报告等), after `$UPLOAD` returns successfully you **must in the same turn** run `$OCRSTREAM <session_id>` using the returned `session_id`. **Do not** end the task after `upload.sh` alone.
-2. **Upload-only exception:** Skip immediate OCR only if the user **explicitly** asked to upload without recognition (e.g. 只上传、不要识别、别跑 OCR、只存文件). If unclear, default to running OCR after upload.
-3. **Progress:** Stream each SSE line to the user as it arrives (normalize / ocr / structure / …).
-4. **After `step=done`:** Always continue to Step 3 (review). **Do not** auto-call confirm — wait for user approval before Step 4.
-
-## Prerequisites — Auto-Auth (MANDATORY)
+## Prerequisites
 
 ```bash
-APICALL="bash ../caremax-auth/scripts/api-call.sh"
 UPLOAD="bash ../caremax-auth/scripts/upload.sh"
-OCRSTREAM="bash ../caremax-auth/scripts/ocr-stream.sh"
+OCR="bash ../caremax-auth/scripts/ocr-stream.sh"
+STATUS="bash ../caremax-auth/scripts/session-status.sh"
+SESSIONS="bash ../caremax-auth/scripts/sessions-list.sh"
+SAVE="bash ../caremax-auth/scripts/save-reports.sh"
+APICALL="bash ../caremax-auth/scripts/api-call.sh"
 ```
 
-If any script returns `no_credentials` → run `bash ../caremax-auth/scripts/auth-flow.sh [base_url]` (from this skill’s root, sibling of `caremax-auth/`).
+`no_credentials` → `bash ../caremax-auth/scripts/auth-flow.sh`.
 
-## Step 1: Upload (creates session)
+## Default behavior
+
+1. After a successful upload, run OCR in the same turn unless the user explicitly said to store the file only (只上传、不要识别).
+2. Production OCR returns HTTP 202. Show that it is queued, then poll status. Do not wait on an SSE stream that the current API does not send.
+3. After `awaiting_confirm`, show the review and wait for the user. Do not auto-confirm.
+4. Do not call confirm on a `completed` session. That is either HTTP 400 `Session already completed` (unmerged async confirm) or a second insert (production). Edit with `save-reports.sh --update`.
+
+## 1. Upload
 
 ```bash
-$UPLOAD /path/to/report1.jpg /path/to/report2.jpg /path/to/report.pdf
+$UPLOAD --member <member_uuid> /path/to/report.jpg /path/to/report.pdf
 ```
 
-Returns:
-```json
-{
-  "session_id": "uuid-xxx",
-  "member_id": "uuid-yyy",
-  "files": [
-    { "id": "file-1", "original_name": "report1.jpg" },
-    { "id": "file-2", "original_name": "report2.jpg" },
-    { "id": "file-3", "original_name": "report.pdf" }
-  ]
-}
-```
+Keep `session_id`. Files may be PDF, JPG, PNG, or HEIC.
 
-Save the `session_id`.
-
-## Step 2: OCR with real-time progress
+## 2. Queue OCR and poll
 
 ```bash
-$OCRSTREAM <session_id>
+$OCR <session_id>
+$STATUS <session_id>
 ```
 
-Outputs one JSON per line:
-```json
-{"step":"resume","progress":1,"message":"Resuming from checkpoint (last completed: ocr)..."}
-{"step":"normalize","progress":5,"message":"Loading file 1/3..."}
-{"step":"ocr","progress":30,"message":"OCR page 2/3: report2.jpg"}
-{"step":"ocr_retry","progress":35,"message":"Retrying OCR page 1/1: report1.jpg"}
-{"step":"structure","progress":62,"message":"Detecting report groups..."}
-{"step":"structure","progress":75,"message":"Structuring report 2/2..."}
-{"step":"normalize_indicators","progress":88,"message":"Standardizing..."}
-{"step":"done","progress":100,"data":{"session_id":"...","reports":[...],"resumed":true}}
-```
+`step=accepted` with `accepted:true` means queued (`status` becomes `queued`). `accepted:false` means it is already `queued`, `processing`, or `awaiting_confirm`. Poll every few seconds.
 
-Display progress to the user as each line arrives.
+| status | Next step |
+|---|---|
+| `queued`, `processing`, and `is_stale:false` | Keep polling |
+| `processing` or `queued` and `is_stale:true` | Kick OCR again. It resumes the checkpoint |
+| `awaiting_confirm` | `GET /api/skill/sessions/<id>` and review `session.ocr_result` |
+| `error` | Read `error.message` / `error.code`. `ocr_low_quality` will not succeed on retry; ask for a clearer image |
+| `completed` | Already saved. Do not OCR or confirm |
+| HTTP 403 `ocr_limit_exceeded` | Quota is exhausted |
+| HTTP 400 `Session already completed` | Stop. Open the saved report |
 
-### Key progress events
+`pipeline.completedStep` is how far the job got (`normalize`, `ocr`, `structure`). `pipeline.ocrFailed` counts pages that will be retried.
 
-| step | meaning |
-|------|---------|
-| `resume` | Pipeline is resuming from a saved checkpoint (not starting from zero) |
-| `info` | Informational message (e.g. which step was resumed from) |
-| `normalize` | Loading and preprocessing files |
-| `ocr` | OCR text extraction per page |
-| `ocr_retry` | Retrying previously failed pages only |
-| `structure` | AI analyzing and grouping reports |
-| `normalize_indicators` | Standardizing indicator names |
-| `done` | Complete — `data` field contains the full results |
-| `error` | Pipeline failed — check `message` for details |
+## 3. Review
 
-If `step=resume` appears, tell the user: "正在从上次的进度继续处理（不需要重新开始）"
+`reportType` `lab` is an 指标报告. `imaging`, `genetic`, `pathology`, and `other` are 文字报告.
 
-### Error responses from `$OCRSTREAM`
+Indicator reports: table of name, value, unit, reference range, and abnormal when `is_abnormal` is 1. Do not confirm a lab report that has zero indicators.
 
-| code | meaning | action |
-|------|---------|--------|
-| `processing_in_progress` | Another OCR run is still active | Wait and retry, or poll `/status` |
-| `ocr_limit_exceeded` | Free OCR quota exhausted | Tell user to upgrade |
-| (no code) | Pipeline error (LLM timeout etc.) | Retry — will auto-resume from checkpoint |
+Text reports: show summary and sections. The abnormality mark is manual. Ask the user. Nonzero means abnormal, 0 means not, and if they do not choose, leave it unset. Do not set the mark because the summary contains 异常. Omitting the field is stored as 0 (not abnormal), so say that explicitly when the user skips the switch.
 
-### Step 2b: Poll status (when SSE disconnects)
+## 4. Save
 
-If the SSE stream disconnects (network timeout, terminal closed), use the status endpoint to check progress:
+Write the reviewed payload to a file and run:
 
 ```bash
-$APICALL GET "/api/skill/sessions/<session_id>/status"
+$SAVE --session <session_id> --file /tmp/confirm.json
 ```
 
-Returns:
-```json
-{
-  "session_id": "uuid",
-  "status": "processing",
-  "pipeline": {
-    "completedStep": "ocr",
-    "pageCount": 5,
-    "ocrCompleted": 4,
-    "ocrFailed": 1,
-    "reportCount": 0,
-    "errors": [{"step":"ocr","pageIndex":2,"message":"PaddleOCR timeout"}]
-  },
-  "error": null,
-  "is_stale": false
-}
-```
+`confirm.json` is `{"reports":[{"record":{...},"reportType":"lab","sourcePages":["a.jpg"]}]}`. Put `has_abnormality` on `record` for a text report only after the user chooses (`1` or `0`).
 
-**Field guide:**
-- `status = processing` + `is_stale = false` → OCR is still running normally
-- `status = processing` + `is_stale = true` → Worker crashed/timed out, safe to retry OCR
-- `status = awaiting_confirm` → OCR completed! Fetch session detail for results
-- `status = uploading` + `error` present → Last OCR attempt failed, retry will resume from checkpoint
-- `pipeline.completedStep` → How far the pipeline got (normalize → ocr → structure → done)
-- `pipeline.ocrFailed` → Number of pages that failed OCR (will be retried on next attempt)
+| Result | Meaning |
+|---|---|
+| `action:saved`, HTTP 200 `{success:true, recordIds}` | Production saved inline. Done |
+| `action:saving`, HTTP 202 `{accepted, status:"saving"}` | Unmerged async save. Poll status until `completed` or `error`. Do not confirm again |
+| `action:refuse_completed` or error `Session already completed` | Already saved. Do not retry confirm |
+| `action:rejected` | Empty indicator report or HTTP 422. Fix the payload first |
+| `action:wait_saving` | A save is already running |
 
-**Polling workflow:**
-```
-1. Call $OCRSTREAM → SSE disconnects mid-way
-2. Poll GET /sessions/<id>/status every 5-10 seconds
-3. When status = "awaiting_confirm" → fetch full results with GET /sessions/<id>
-4. If status = "uploading" (failed) → retry with $OCRSTREAM (auto-resumes)
-5. If is_stale = true → retry with $OCRSTREAM (auto-resumes from checkpoint)
-```
-
-## Step 3: Review results (MANDATORY)
-
-Parse the `step=done` data. Show formatted summary. **Do NOT auto-confirm.**
-
-Each report has a `reportType` field: `lab`, `genetic`, `imaging`, `pathology`, or `other`.
-
-### Lab reports (reportType = "lab")
-Show indicators table:
-```
-📋 报告 1: [lab] 尿生化 (编号: 114431194)
-   日期: 2025-02-05  医生: 俞海瑾
-   指标: 12 个 (3 个异常)
-   ┌──────────────────────┬────────┬──────────┬────────────┬──────┐
-   │ 指标                 │ 结果   │ 单位     │ 参考范围   │ 异常 │
-   ├──────────────────────┼────────┼──────────┼────────────┼──────┤
-   │ 24H尿钠              │ 130.0  │ mmol/24h │ 137-257    │  ⬇   │
-   └──────────────────────┴────────┴──────────┴────────────┴──────┘
-```
-
-### Non-lab reports (reportType = "genetic" / "imaging" / etc.)
-Show summary + sections:
-```
-📋 报告 1: [genetic] 基因检测报告
-   日期: 2025-09-12  检测机构: 南京申友医学检验所
-   摘要: 心血管18项基因检测...高血压、冠心病风险一般...
-   段落: 18 sections
-     [gene_variant] 高血压 — 风险: 正常
-     [gene_variant] 冠心病 — 风险: 一般
-     [medication] ACEI类降压药 — 正常代谢型
-     ...
-```
-
-### Supported file types
-- **Images** (JPG/PNG/HEIC): PaddleOCR → structure
-- **PDF** (any size): Azure Mistral Document AI page-split → structure
-  - Large PDFs (e.g. 23-page gene report, 9.6MB) are fully supported
-
-## Step 4: Confirm and save
-
-After user confirms:
+## 5. Edit a saved report
 
 ```bash
-$APICALL POST "/api/skill/sessions/<session_id>/confirm" '{"reports":[<reports from step 2>]}'
+$SAVE --update --file /tmp/records.json
 ```
 
-Returns: `{"success":true,"message":"2 report(s) saved","recordIds":[...]}`
+`records.json` is `{"records":[{"id":"<existing record id>", ...}], "member_id":"<uuid>"}`. This is `POST /api/records`. iOS uses it for 「保存记录」 after the first confirm. Do not POST confirm for that edit.
 
-## Resuming incomplete sessions
-
-When the user asks to continue/resume a previous upload, or when checking for unfinished work:
-
-### Step A: Find pending sessions
+## Unfinished vs all history
 
 ```bash
-# List sessions that need OCR (uploaded but not processed)
-$APICALL GET "/api/skill/sessions?status=uploading"
-
-# List sessions stuck in processing (user exited mid-OCR)
-$APICALL GET "/api/skill/sessions?status=processing"
-
-# List sessions with OCR done but not yet confirmed
-$APICALL GET "/api/skill/sessions?status=awaiting_confirm"
+$SESSIONS unfinished --member <member_uuid>
+$SESSIONS history --member <member_uuid> --page 1 --limit 20
 ```
 
-Show a summary of pending sessions to the user (file names, dates, status).
+未完成 / 上传待处理 is the merged status query (`uploading`, `queued`, `processing`, `awaiting_confirm`, `error`, `saving`). 全部任务 / 全部 is the paginated call **without** `status`. Empty unfinished does not mean history is empty. Refresh repeats page 1. Load more only while `has_more` is true.
 
-### Step B: Resume based on status
-
-- **`uploading`**: Start OCR directly → go to Step 2 (`$OCRSTREAM <session_id>`)
-  - If there's a saved checkpoint (previous failed attempt), OCR auto-resumes from it
-- **`processing`**: Check with status endpoint first:
-  ```bash
-  $APICALL GET "/api/skill/sessions/<session_id>/status"
-  ```
-  - `is_stale = false` → still running, wait or poll
-  - `is_stale = true` → worker died, safe to retry: `$OCRSTREAM <session_id>` (auto-resumes from checkpoint)
-- **`awaiting_confirm`**: Get session detail → show results → go to Step 3 (review & confirm)
+Resume: `uploading` or stale `processing` → OCR kick. `awaiting_confirm` → review. `error` → show `error.message`, then kick only if the code is not a permanent image failure. `saving` → wait, do not press continue. `completed` rows in history are view/download only.
 
 ```bash
-# Get full detail of a pending session (includes OCR results if awaiting_confirm)
-$APICALL GET "/api/skill/sessions/<session_id>"
+bash ../caremax-auth/scripts/download-file.sh <file_id> /tmp/source.jpg
+$APICALL DELETE /api/skill/sessions/<session_id>
+$APICALL DELETE /api/skill/sessions/<session_id>/records/<record_id>
 ```
 
-If the session is `awaiting_confirm`, the response includes `ocr_result` with the previously parsed reports — display them for review and proceed to Step 3 (confirm).
-
-### Resume-aware response handling
-
-When `$OCRSTREAM` outputs `step=done`:
-- `resumed = true` in the data → tell user: "已从上次的进度恢复，OCR 结果已就绪"
-- `resumed = false` (or absent) → normal fresh run
-
-When `$OCRSTREAM` outputs `step=error`:
-- `code = processing_in_progress` → tell user OCR is still running, poll `/status` instead
-- `code = ocr_limit_exceeded` → tell user to upgrade
-- No code → LLM/network error, safe to retry (will auto-resume from checkpoint)
-
-### Step C: Delete individual reports or stale sessions
-
-Delete a single report (does NOT affect other reports in the same session):
-
-```bash
-$APICALL DELETE "/api/skill/sessions/<session_id>/records/<record_id>"
-```
-
-Delete an entire session (cascade deletes ALL files + reports):
-
-```bash
-$APICALL DELETE "/api/skill/sessions/<session_id>"
-```
-
-## Other session operations
-
-```bash
-# List all sessions (all statuses)
-$APICALL GET /api/skill/sessions
-
-# List sessions filtered by status: uploading | processing | awaiting_confirm | completed
-$APICALL GET "/api/skill/sessions?status=<status>"
-
-# Get session detail (includes OCR results if awaiting_confirm, saved reports if completed)
-$APICALL GET "/api/skill/sessions/<session_id>"
-
-# Poll OCR progress (lightweight, use when SSE disconnects)
-$APICALL GET "/api/skill/sessions/<session_id>/status"
-
-# Delete single report (keeps session and other reports intact)
-$APICALL DELETE "/api/skill/sessions/<session_id>/records/<record_id>"
-
-# Delete entire session (undo everything: files + reports)
-$APICALL DELETE "/api/skill/sessions/<session_id>"
-```
+Deleting one record keeps the rest of the session. Deleting the session removes its files and reports.

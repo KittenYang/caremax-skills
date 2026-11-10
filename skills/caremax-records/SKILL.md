@@ -1,138 +1,93 @@
 ---
 name: caremax-records
-description: "Query and search medical records from CareMax Health API. Supports structured query, AI-powered semantic search with RAG (natural language answers with citations). Use when a user asks about medical reports, check-up history, hospital visits, test results, gene reports, or wants to find specific records. Trigger terms: medical record, check-up, hospital report, test result, health report, find report, search records, medical history, gene report, 体检, 报告, 检查, 基因, 搜索."
+description: "Query CareMax medical records and update an already saved report. Use for report lists, record detail, natural-language record search, text versus indicator reports, and the saved has_abnormality flag. Conversational health Q&A belongs to caremax-chat. Trigger terms: medical record, check-up, 体检, 报告, 病历, 文字报告, 指标报告, 异常标记, update report, 保存记录."
 license: MIT
 ---
 
-# CareMax Medical Records
+# CareMax medical records
 
-> **Requires `caremax-auth` as a sibling directory** (`../caremax-auth/`). If missing, tell the user to install caremax-auth first (e.g. `npx skills add KittenYang/caremax-skills`).
+> Requires sibling `caremax-auth`. If it is missing: `npx skills add KittenYang/caremax-skills`.
 
-## Prerequisites — Auto-Auth (MANDATORY)
+Search and list saved reports. For a back-and-forth health question, use **caremax-chat** (`chat-stream.sh`). Record search does not open a conversation and its `rag` blurb is not the 健康问答 transcript.
+
+Contracts: [../caremax-auth/references/http-contracts.md](../caremax-auth/references/http-contracts.md).
+
+## Prerequisites
 
 ```bash
 APICALL="bash ../caremax-auth/scripts/api-call.sh"
+SAVE="bash ../caremax-auth/scripts/save-reports.sh"
 ```
 
-If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ../caremax-auth/scripts/auth-flow.sh [base_url]`** (from this skill’s root).
+`no_credentials` → `bash ../caremax-auth/scripts/auth-flow.sh`.
 
-## Smart Search (Recommended)
+## Query
 
-Use `searchText` for natural language queries. Backend runs 4-layer search:
-1. LLM keyword extraction (maps "喝酒" → "ALDH2 酒精代谢")
-2. LIKE search on report titles, summaries, sections, indicators
-3. Semantic vector search (BGE-M3 → Zilliz)
-4. RAG: DeepSeek-V3.2 generates natural language answer with citations
+`POST /api/skill/records/query`. There is no `/api/skill/records/search`.
 
 ```bash
-$APICALL POST /api/skill/records/query '{"searchText":"我有哪个基因不能喝酒"}'
-$APICALL POST /api/skill/records/query '{"searchText":"我猝死的概率大吗"}'
-$APICALL POST /api/skill/records/query '{"searchText":"降压药建议"}'
-$APICALL POST /api/skill/records/query '{"searchText":"MTHFR"}'
+# natural language (LIKE + vectors + a short rag answer)
+$APICALL POST /api/skill/records/query '{"searchText":"肝功能","memberId":"<uuid>","page":1,"limit":20}'
+
+# latest reports when the body has no filter
+$APICALL POST /api/skill/records/query '{"memberId":"<uuid>","page":1,"limit":20}'
+
+# structured
+$APICALL POST /api/skill/records/query '{"dateRange":["2025-01-01","2025-12-31"],"memberId":"<uuid>"}'
+$APICALL POST /api/skill/records/query '{"indicatorName":"肌酐","memberId":"<uuid>"}'
+$APICALL POST /api/skill/records/query '{"reportTitle":"血常规","memberId":"<uuid>"}'
+
+# one record, including sections for non-lab types
+$APICALL POST /api/skill/records/query '{"recordId":"<uuid>"}'
 ```
 
-Response:
+`searchText` returns `{type:"search", query, data, totalCount, semanticHits, rag}`. Show matching reports first. `rag.answer` is optional context, with `rag.citations`. Indicator queries return `{type:"indicator", data:[{date, value, unit, isAbnormal}]}` where `isAbnormal` is `is_abnormal === 1`.
+
+`memberId` is camelCase. Omit it to use the default member.
+
+## Text vs indicator, and the abnormality flag
+
+| Kind | Recognition | What to show |
+|---|---|---|
+| 指标报告 | `report_type` `lab`, or indicators on a report with no other type | Rows with value, unit, reference range. A row is abnormal only when `is_abnormal` is 1 |
+| 文字报告 | `imaging`, `genetic`, `pathology`, `other`, or sections/summary without a lab type | Summary and `sections[]`. Abnormality is the manual `has_abnormality` switch |
+
+Record-level rule, same as the list and the editor switch:
+
+- nonzero / true → abnormal
+- 0 / false → not abnormal
+- null → unset, and not abnormal
+
+Do not classify a report from summary keywords. 「未见明显异常」 does not clear or set the flag. Chat reference cards follow this same flag; see caremax-chat. Production chat cards only map exact `1` to true, so prefer `has_abnormality` from this query when deciding.
+
+`abnormal_count` on a session history row counts indicator rows with `is_abnormal = 1`. It is not a substitute for the record flag on a text report.
+
+## Update a saved report
+
+First-time save of an upload is session confirm (`caremax-ocr`, `save-reports.sh --session`). Changing a report that already has an id:
+
+```bash
+$SAVE --update --file /tmp/records.json
+```
+
 ```json
 {
-  "type": "search",
-  "query": "...",
-  "data": [...],              // matched records (enriched)
-  "totalCount": 1,
-  "semanticHits": [           // vector similarity top-10
-    {"text": "...", "score": 0.61, "recordId": "xxx"}
-  ],
-  "rag": {                    // AI natural language answer
-    "answer": "根据您的基因检测报告...[来源1][来源2]",
-    "citations": [
-      {"index": 1, "source": "脑梗塞风险评估", "relevance": "高"}
-    ]
-  }
+  "member_id": "<member uuid>",
+  "records": [{
+    "id": "<existing record id>",
+    "report_title": "总检综述与医生建议",
+    "test_date": "2024-03-01",
+    "has_abnormality": 0,
+    "hospital": "",
+    "indicators": []
+  }]
 }
 ```
 
-**Display the `rag.answer` to the user.** It contains the direct answer with citation references.
+`POST /api/records` updates when `id` already exists and inserts when it does not. Do not call `POST /sessions/:id/confirm` for this. Confirm on a completed session is either `Session already completed` (unmerged API) or a duplicate insert (production).
 
-## Structured Query
+For a text report, write `has_abnormality` only from the user's switch (`1` or `0`). If they do not choose, omit it and tell them the server stores that omission as not abnormal (`0`), not as unset.
 
-```bash
-# By date range
-$APICALL POST /api/skill/records/query '{"dateRange":["2025-01-01","2025-12-31"]}'
+## Upload history is not this endpoint
 
-# By indicator name
-$APICALL POST /api/skill/records/query '{"indicatorName":"血红蛋白"}'
-
-# By report title
-$APICALL POST /api/skill/records/query '{"reportTitle":"血常规"}'
-
-# By record ID (single record detail)
-$APICALL POST /api/skill/records/query '{"recordId":"uuid"}'
-
-# By member + pagination
-$APICALL POST /api/skill/records/query '{"memberId":"member-uuid","page":1,"limit":20}'
-```
-
-## Report Types
-
-The system handles multiple report types:
-- **lab**: Standard lab reports (indicators with name/value/unit/reference_range)
-- **genetic**: Gene testing reports (sections with gene/SNP/genotype/risk_level)
-- **imaging**: Radiology reports (sections with location/finding/impression)
-- **pathology**: Pathology reports (sections with tissue/grade/staging)
-- **other**: Any other medical document
-
-Non-lab reports have `report_type`, `summary`, and `sections[]` fields instead of `indicators[]`.
-
-## AI 对话（推荐）
-
-使用 `/api/skill/chat` 进行 AI 对话。所有对话自动保存到历史记录。
-
-```bash
-# 提问（自动搜索 + RAG + 保存历史）
-$APICALL POST /api/skill/chat '{"question":"我有哪个基因不能喝酒"}'
-$APICALL POST /api/skill/chat '{"question":"我的降压药应该怎么吃"}'
-
-# 针对某份报告提问
-$APICALL POST /api/skill/chat '{"question":"这份报告有什么建议","recordId":"uuid"}'
-```
-
-Response:
-```json
-{
-  "id": "chat-uuid",
-  "question": "...",
-  "answer": "根据您的报告...[来源1]",
-  "citations": [{"index":1,"source":"...","relevance":"高","quote":"原文..."}],
-  "recordId": null,
-  "created_at": "..."
-}
-```
-
-**Display the `answer` to the user.** Citations contain original report text.
-
-```bash
-# 获取历史记录
-$APICALL GET /api/skill/chat/history
-
-# 删除单条
-$APICALL DELETE /api/skill/chat/<chat_id>
-
-# 清空所有
-$APICALL DELETE /api/skill/chat
-```
-
-## Recommended Workflow
-
-User: "我的基因检测报告说了什么"
-```bash
-$APICALL POST /api/skill/chat '{"question":"我的基因检测报告说了什么"}'
-```
-
-User: "show my recent check-up results"
-```bash
-$APICALL POST /api/skill/records/query '{"dateRange":["2025-01-01","2025-06-30"]}'
-```
-
-User: "我的降压药应该怎么吃"
-```bash
-$APICALL POST /api/skill/chat '{"question":"我的降压药应该怎么吃"}'
-```
+未完成 and 全部任务 are `GET /api/skill/sessions` via `sessions-list.sh` in caremax-ocr. `records/query` reads saved `medical_records`, not in-progress upload sessions.

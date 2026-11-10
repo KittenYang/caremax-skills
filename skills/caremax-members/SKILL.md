@@ -1,60 +1,55 @@
 ---
 name: caremax-members
-description: "Manage family members in CareMax Health. Use when a user asks about family health tracking, switching between family member profiles, or viewing another family member's health data. Trigger terms: family member, member list, my family, switch member, spouse health, child health, parent health, 家人, 家庭成员."
+description: "List and manage CareMax family members. Use when the user switches profiles, adds or edits a family member, or asks for another member's indicators, records, uploads, or chat. Trigger terms: family member, 家人, 家庭成员, switch member, spouse, parent, child."
 license: MIT
 ---
 
-# CareMax Family Members
+# CareMax family members
 
-> **Requires `caremax-auth` as a sibling directory** (`../caremax-auth/`). If missing, tell the user to install caremax-auth first (e.g. `npx skills add KittenYang/caremax-skills`).
+> Requires sibling `caremax-auth`. If it is missing: `npx skills add KittenYang/caremax-skills`.
 
-List and work with family member profiles. CareMax supports tracking health data for multiple family members.
+Profiles the account can file reports under. The signed-in user has one default member (`isDefault: true`). That member cannot be deleted.
 
-## Prerequisites — Auto-Auth (MANDATORY)
+Contracts: [../caremax-auth/references/http-contracts.md](../caremax-auth/references/http-contracts.md).
+
+## Prerequisites
 
 ```bash
 APICALL="bash ../caremax-auth/scripts/api-call.sh"
 ```
 
-If `api-call.sh` returns `{"error":"no_credentials",...}` → **immediately run `bash ../caremax-auth/scripts/auth-flow.sh [base_url]`** in background (from this skill’s root). If the user specified a custom URL, pass it as the argument.
+`no_credentials` → `bash ../caremax-auth/scripts/auth-flow.sh`.
 
-## List Members
+## List and edit
+
+Responses are camelCase: `id`, `userId`, `name`, `gender`, `birthDate`, `relationship`, `isDefault`, `createdAt`, `updatedAt`.
 
 ```bash
 $APICALL GET /api/skill/members
+$APICALL GET /api/skill/members/<member_id>
+$APICALL POST /api/skill/members '{"name":"妈妈","relationship":"parent","gender":"female"}'
+$APICALL PUT /api/skill/members/<member_id> '{"name":"妈妈","relationship":"parent"}'
+$APICALL DELETE /api/skill/members/<member_id>
 ```
 
-Response: `{"members":[{"id":"...","name":"...","gender":"...","relationship":"self","is_default":1},...]}`
+Create returns HTTP 201 `{member, message}`. `relationship` is `self`, `spouse`, `child`, `parent`, `sibling`, or `other`. DELETE of the default member is HTTP 400 `不能删除默认会员`.
 
-## Using memberId in Other Queries
+## Which parameter name
 
-Pass `memberId` to scope queries to a specific family member:
+| Call | Member field |
+|---|---|
+| Indicators, records query, chat | `memberId` |
+| Upload, session list, quick log | `member_id` |
 
 ```bash
-# Indicators for a specific member
-$APICALL GET "/api/skill/indicators?memberId=xxx"
-
-# Records for a specific member
-$APICALL POST /api/skill/records/query '{"memberId":"xxx"}'
-
-# Search for a specific member
-$APICALL POST /api/skill/records/search '{"query":"血常规","memberId":"xxx"}'
+$APICALL GET "/api/skill/indicators?memberId=<id>"
+$APICALL POST /api/skill/records/query '{"memberId":"<id>","page":1,"limit":20}'
+bash ../caremax-auth/scripts/chat-stream.sh --question "最近的体检" --member <id>
+bash ../caremax-auth/scripts/sessions-list.sh unfinished --member <id>
+bash ../caremax-auth/scripts/sessions-list.sh history --member <id> --page 1 --limit 20
+bash ../caremax-auth/scripts/upload.sh --member <id> /path/to/report.jpg
 ```
 
-## Recommended Workflow
+If no member is passed, indicator, record, and chat calls use the default member. Session history should still pass `member_id` when the user is looking at one profile. Unfinished tasks and all-history are different requests; see caremax-ocr.
 
-"show my wife's blood sugar":
-```bash
-# 1. Find spouse member
-$APICALL GET /api/skill/members
-# 2. Get indicators for that member (extract spouse's id)
-$APICALL GET "/api/skill/indicators?memberId={spouse_id}"
-# 3. Get trend for blood sugar indicator
-$APICALL GET "/api/skill/indicators/trend?id={indicator_uuid}"
-```
-
-## Notes
-
-- Every account has a default member (`is_default: 1` = the user themselves)
-- If no `memberId` specified, queries return data for the default member
-- `relationship` values: self, spouse, child, parent, sibling, other
+Look up the member with `GET /api/skill/members` before guessing an id from a name. If two profiles match, ask which one.

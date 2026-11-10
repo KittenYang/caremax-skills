@@ -19,9 +19,12 @@ This repository contains **CareMax Health** skills for AI coding agents. When ed
 
 - Write descriptions in **third person** (e.g. "Use when..." not "You can use when...").
 - Be concise; avoid restating general API docs. Focus on correct usage, authentication flow, and error handling.
-- When adding a new skill: create `skills/<skill-name>/SKILL.md`, then update README.md "Skills" table and `skills/llms.txt`.
+- When adding a new skill: create `skills/<skill-name>/SKILL.md`, then update README.md "Skills" table, `skills/llms.txt`, plugin manifests, and `scripts/publish-clawhub.sh`.
 - **Script paths in SKILL.md:** use **product-agnostic relative paths** — `./scripts/...` inside `caremax-auth`, and `../caremax-auth/scripts/...` from sibling `caremax-*` skills. Do **not** hardcode `~/.claude/skills/` (users may use `~/.agents/skills/` or other installs).
-- **Agent-facing** indicator/record helpers often use `/api/skill/*` with OAuth (`api-call.sh`). **User app** features may use other authenticated JSON routes (e.g. quick vitals under `/api/indicators/*`).
+- **Agent-facing** helpers use `/api/skill/*` with OAuth (`api-call.sh`). The same user token also calls app routes the product already uses: quick log under `/api/indicators/*`, first-time session confirm under `/api/sessions/:id/confirm`, and edits of a saved report under `POST /api/records`. Chat SSE is `POST /api/skill/chat` with `Accept: text/event-stream`.
+- Shared request shapes live in `skills/caremax-auth/references/http-contracts.md`. When the default branch and an unmerged client draft disagree, document both and do not describe the draft as production.
+- A cited report is abnormal only from the saved `has_abnormality` flag: nonzero is abnormal, `0` / false is not, null is unset. Do not infer that from summary text. Indicator rows use `is_abnormal === 1` separately.
+- Unfinished uploads and all-history are different `GET /sessions` queries. Do not confirm a session that is already `completed`; update the record instead.
 - **Do not document privileged operator or admin-only APIs in this public repository.** Keep deployer runbooks in private docs or the application repo if appropriate.
 - Authentication for end users uses OAuth Device Flow — do not hardcode user tokens in skills.
 
