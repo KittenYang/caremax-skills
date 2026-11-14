@@ -4,62 +4,60 @@ When working with health data, medical reports, or the CareMax platform, follow 
 
 ## Authentication
 
-Use OAuth Device Flow to authenticate with CareMax API:
+Use the scripts in `skills/caremax-auth/scripts/` (OAuth device flow). Do not invent curl.
 
-1. `POST https://api.caremax.ai/api/auth/device` with `{ "client_id": "caremax-agent" }`
-2. Open the returned `verification_uri_complete` in the user's browser
-3. Poll `POST https://api.caremax.ai/api/auth/device/token` with the `device_code` every 5 seconds
-4. Once approved, store the `access_token` (sk-caremax-...) for subsequent API calls
+1. `bash skills/caremax-auth/scripts/auth-flow.sh` opens the browser and polls `POST /api/auth/device/token`
+2. Tokens are stored in `~/.caremax/credentials.json`
+3. `api-call.sh` sends `Authorization: Bearer` and refreshes on expiry or HTTP 401 `invalid_token`
 
 ## API Usage
 
-- Base URL: `https://api.caremax.ai`
-- All skill endpoints: `/api/skill/*`
-- Auth header: `Authorization: Bearer sk-caremax-...`
-- Response format: JSON
+- Base URL: `https://api.caremax.ai` (or `base_url` in the credentials file)
+- Skill proxies: `/api/skill/*`
+- The same token is valid on the app routes the scripts call
+- Contracts: `skills/caremax-auth/references/http-contracts.md`
 
 ## Common Workflows
 
-### Query health indicators
+### Health Q&A (健康问答)
 ```
-GET /api/skill/indicators                    → list all indicators
-GET /api/skill/indicators/categories         → list categories
-GET /api/skill/indicators/trend?id={uuid}    → get trend data
+skills/caremax-auth/scripts/chat-stream.sh --question "..."
 ```
+SSE events: `status`, `sources`, `delta`, `citations`, `done`, `error`.
+A cited report follows saved `has_abnormality` (nonzero abnormal, 0/false not, null unset). Do not infer from summary text.
 
-### Search medical records
+### Indicators
 ```
-POST /api/skill/records/query   → filter by date, indicator, report title
-POST /api/skill/records/search  → natural language semantic search
+GET /api/skill/indicators
+GET /api/skill/indicators/categories
+GET /api/skill/indicators/trend?id={uuid}&memberId={uuid}
 ```
+Quick log: `list-system-presets.sh` then `quick-log.sh`. List source is `GET /api/indicators?category=common_indicator`.
 
-### Upload and OCR medical reports
+### Records
 ```
-POST /api/skill/upload  → upload file (multipart/form-data)
-POST /api/skill/ocr     → OCR recognition (pass fileIds from upload)
+POST /api/skill/records/query    searchText, dateRange, indicatorName, reportTitle, recordId, memberId
 ```
+There is no `/records/search`. Updating a saved report is `POST /api/records` (`save-reports.sh --update`), not session confirm.
+
+### Upload and OCR
+```
+upload.sh [--member id] file...
+ocr-stream.sh <session_id>          # HTTP 202 JSON on the current API
+session-status.sh <session_id>
+save-reports.sh --session <id> --file confirm.json
+```
+Unfinished: `sessions-list.sh unfinished`. All history: `sessions-list.sh history --page 1 --limit 20` with no status filter.
 
 ### Family members
 ```
-GET /api/skill/members  → list family members (use memberId to filter queries)
+GET /api/skill/members
 ```
-
-### User app — quick vitals (OAuth user token, not `/api/skill/*`)
-Same feature as in-app 「快捷记一笔」: use **caremax-auth scripts** (do not hand-roll curl). Paths are **relative to skill roots** (no `~/.claude`):
-```
-# from caremax-auth/ directory:
-bash ./scripts/list-system-presets.sh
-bash ./scripts/quick-log.sh <preset_key> <value> [--unit U] [--date YYYY-MM-DD] [--member uuid]
-# from any sibling caremax-* skill (e.g. caremax-indicators/):
-bash ../caremax-auth/scripts/list-system-presets.sh
-```
-Underlying JSON routes (for reference only): `GET /api/indicators/system-presets`, `POST /api/indicators/quick-log`. **Use presets response as the allowed list** — do not hardcode metric names.
+Responses use `isDefault` and `birthDate`. Do not delete the default member.
 
 ## Best Practices
 
-- Always get indicator UUID from `/api/skill/indicators` before querying trends
-- Semantic search accepts Chinese and English natural language queries
-- Upload supports PDF, JPG, PNG formats
-- OCR is a two-step process: upload first, then OCR with the returned file IDs
-- Display indicator values with units and reference ranges for clarity
-- For quick log: explain in plain language (“记一笔体重”), run `list-system-presets.sh`, then `quick-log.sh` with a valid `preset_key`
+- Get the indicator UUID before requesting a trend
+- Display values with units and reference ranges
+- Do not confirm a completed session and do not confirm an indicator report with zero indicators
+- Do not document admin or payment routes in this repo

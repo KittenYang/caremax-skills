@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# 列出当前用户可「快捷记一笔」的指标预设（与 App 芯片列表一致）
-# 用法: bash list-system-presets.sh
-# 依赖: 同目录 api-call.sh（OAuth 用户 token）
-
+# List quick-log presets from GET /api/indicators?category=common_indicator.
+# The deprecated GET /api/indicators/system-presets route still exists; this
+# script uses the successor and normalizes canonical_name to preset_key.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/api-call.sh" GET /api/indicators/system-presets
+exec python3 "$SCRIPT_DIR/lib/client.py" presets

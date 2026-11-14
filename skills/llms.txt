@@ -1,4 +1,5 @@
 caremax-auth
+caremax-chat
 caremax-indicators
 caremax-records
 caremax-ocr

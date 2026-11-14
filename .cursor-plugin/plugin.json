@@ -1,7 +1,7 @@
 {
   "name": "caremax-skills",
-  "version": "1.0.0",
-  "description": "Official CareMax Health skills for Cursor, Claude, and other AI agents — health indicator tracking, medical report OCR, trend analysis, semantic search, and family health management",
+  "version": "1.1.0",
+  "description": "Official CareMax Health skills for Cursor, Claude, and other AI agents — health Q&A, report OCR, indicators, records, and family members",
   "author": {
     "name": "CareMax.ai",
     "email": "support@caremax.ai",
@@ -16,7 +16,9 @@
     "health-indicators",
     "medical-records",
     "health-tracking",
-    "trend-analysis"
+    "trend-analysis",
+    "health-qa",
+    "chat"
   ],
   "logo": "./assets/caremax-icon.svg",
   "skills": ["skills"]

@@ -28,3 +28,8 @@ build/
 tmp/
 temp/
 *.tmp
+
+# Python tests
+__pycache__/
+*.py[cod]
+.pytest_cache/
