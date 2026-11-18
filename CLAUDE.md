@@ -43,7 +43,9 @@ Credentials are stored at `~/.caremax/credentials.json`:
 
 - Indicator categories: `GET /api/skill/indicators/categories`. Trend needs the indicator UUID from `GET /api/skill/indicators`. Member scope on those routes is `memberId`.
 - Natural-language record search is `POST /api/skill/records/query` with `searchText`. There is no `/api/skill/records/search`.
-- Health Q&A (健康问答) is `caremax-chat` / `chat-stream.sh` (`POST /api/skill/chat`, `Accept: text/event-stream`). A cited report is abnormal only from saved `has_abnormality`: nonzero abnormal, 0/false not, null unset. Do not infer from summary text or from the word 异常. Indicator rows use `is_abnormal === 1` on their own.
+- Health Q&A (健康问答) is `caremax-chat` / `chat-stream.sh` (`POST /api/skill/chat`, `Accept: text/event-stream`). Analysis uses the user's saved abnormality marks. `sources[].hasAbnormality` comes only from saved `has_abnormality`. Nonzero is abnormal, 0/false is not, null is unset. Do not infer from summary text or from the word 异常. Current iOS paints the reference badge from the records-query flag. Indicator rows use `is_abnormal === 1` on their own.
+- A normal range is each lab result's `reference_range`. The indicator dictionary and 「我的指标」 have no normal-range column. On a single-indicator trend, same-unit ranges merge to the widest interval any hospital treated as normal (1.1–2.3 and 1.9–2.5 become 1.1～2.5). Leave mismatched units out of that band, including mg/dL on a mmol/L axis. The band does not recolor points. Meaningfully different hospital intervals show 「各医院标准不同」. Details are in `caremax-indicators`.
+- App languages are Simplified Chinese, Traditional Chinese (zh-Hant), English, Japanese, and French. CareMax stays untranslated. Built-in category and quick-log names follow the language; custom names stay as saved. The setting is 我的 → 通用 → 语言. 「我的指标」 has no top-right gear. Family chips put the avatar to the left of the name. The selected member card is a solid opaque fill.
 - Upload is `upload.sh` (multipart `files`, optional `member_id`). OCR is `POST /sessions/:id/ocr`, which returns HTTP 202 on the current API. Poll `session-status.sh`. Do not require an SSE progress stream.
 - Unfinished uploads (`sessions-list.sh unfinished`) and all history (`sessions-list.sh history`) are different queries. History is paginated with `page` and `limit` and no status filter.
 - Confirm a session only while it is awaiting review. HTTP 200 means production saved inline. HTTP 202 `saving` means wait and do not confirm again. `Session already completed` means stop. Editing a saved report is `save-reports.sh --update` (`POST /records`).
@@ -65,4 +67,4 @@ Credentials are stored at `~/.caremax/credentials.json`:
 - 401 `invalid_token` or `token_expired`: refresh once, then device flow if refresh fails
 - 403 `insufficient_scope`: token lacks the required permission
 - 400 `Session already completed`: do not retry confirm or OCR
-- Show indicator values with units and reference ranges
+- Show indicator values with units and each row's reference range

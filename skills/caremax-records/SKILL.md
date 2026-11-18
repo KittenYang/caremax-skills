@@ -49,7 +49,7 @@ $APICALL POST /api/skill/records/query '{"recordId":"<uuid>"}'
 
 | Kind | Recognition | What to show |
 |---|---|---|
-| 指标报告 | `report_type` `lab`, or indicators on a report with no other type | Rows with value, unit, reference range. A row is abnormal only when `is_abnormal` is 1 |
+| 指标报告 | `report_type` `lab`, or indicators on a report with no other type | Rows with value, unit, and that row's `reference_range`. A row is abnormal only when `is_abnormal` is 1 |
 | 文字报告 | `imaging`, `genetic`, `pathology`, `other`, or sections/summary without a lab type | Summary and `sections[]`. Abnormality is the manual `has_abnormality` switch |
 
 Record-level rule, same as the list and the editor switch:
@@ -58,7 +58,9 @@ Record-level rule, same as the list and the editor switch:
 - 0 / false → not abnormal
 - null → unset, and not abnormal
 
-Do not classify a report from summary keywords. 「未见明显异常」 does not clear or set the flag. Chat reference cards follow this same flag; see caremax-chat. Production chat cards only map exact `1` to true, so prefer `has_abnormality` from this query when deciding.
+Do not classify a report from summary keywords. 「未见明显异常」 does not clear or set the flag. Chat analysis uses this same saved flag. `sources[].hasAbnormality` is only a mapping of it; current iOS paints the reference badge from this query, not from the card or the snippet. See caremax-chat. Production chat cards only map exact `1` to true, so prefer `has_abnormality` from this query when deciding.
+
+The indicator dictionary has no shared normal range. Report detail shows each lab row's own `reference_range`. A single-indicator trend may draw a same-unit union of those ranges; that band does not recolor rows. See caremax-indicators.
 
 `abnormal_count` on a session history row counts indicator rows with `is_abnormal = 1`. It is not a substitute for the record flag on a text report.
 
@@ -84,7 +86,7 @@ $SAVE --update --file /tmp/records.json
 }
 ```
 
-`POST /api/records` updates when `id` already exists and inserts when it does not. Do not call `POST /sessions/:id/confirm` for this. Confirm on a completed session is either `Session already completed` (unmerged API) or a duplicate insert (production).
+`POST /api/records` updates when `id` already exists and inserts when it does not. Do not call `POST /sessions/:id/confirm` for this. Confirm on a completed session is either `Session already completed` (unmerged API) or a duplicate insert (production). In the app, edit and delete on the report list are a system-style left swipe.
 
 For a text report, write `has_abnormality` only from the user's switch (`1` or `0`). If they do not choose, omit it and tell them the server stores that omission as not abnormal (`0`), not as unset.
 

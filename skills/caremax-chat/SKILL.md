@@ -60,7 +60,11 @@ Use the saved `has_abnormality` flag. Do not decide from the card `snippet`, the
 
 Indicator rows are separate: `indicators[].isAbnormal` is true only when that row's `is_abnormal` is 1. A report can be marked not abnormal while one row is abnormal. Say which is which.
 
-Production `sources[].hasAbnormality` is true only for exact `1`. The unmerged backend change (not production) uses the nonzero rule and adds an 「异常标记」 line to the prompt. The unmerged iOS build draws the badge from `POST /api/skill/records/query` `has_abnormality`, not from the chat card. If the raw flag is available, it wins over the card boolean. Never upgrade a false or null card because the snippet contains 异常.
+Analysis uses the user's saved abnormality marks. Do not infer them from summary text.
+
+`sources[].hasAbnormality` comes only from saved `has_abnormality`. On the production API that boolean is true only for exact `1` (`0` is false, `null` is null, any other number is false). The unmerged backend change (not production) uses the nonzero rule and adds an 「异常标记」 line to the prompt.
+
+Current iOS (on `health-ios` main) does not paint the reference badge from the chat card or from the snippet. The badge follows saved `has_abnormality` from `POST /api/skill/records/query`, the same flag as the report list. A missing saved flag shows no 异常 badge, even when the card boolean is true or the snippet contains 异常. When the raw flag is available, it wins over the card boolean.
 
 ```bash
 $APICALL POST /api/skill/records/query '{"recordId":"<source id>"}'
@@ -78,5 +82,7 @@ $APICALL DELETE /api/skill/chat/conversations/<conversationId>
 ```
 
 `GET /api/skill/chat/history` is the legacy flat list. Prefer conversations. Stored messages can include `sources` and `citations` from the SSE turn.
+
+In the app, the history sheet loads with the same carrot skeleton as the report list. Bottom sheets do not draw an extra bar along the bottom.
 
 `GET /api/skill/chat/suggestions?recordId=` returns suggested questions only when digest precompute is enabled; `status:"disabled"` means there are none.

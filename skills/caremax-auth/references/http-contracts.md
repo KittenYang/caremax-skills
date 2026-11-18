@@ -75,9 +75,9 @@ Do not infer abnormality from `snippet`, summary, 「报告概览」, a precompu
 
 Default branch vs unmerged draft:
 
-- **Production chat cards** (`sources[].hasAbnormality`) use `Number(has_abnormality) === 1`. Exact `1` is true, `0` is false, `null` is null, and any other number (including `2`) is **false**. The model prompt on this branch does not include an 「异常标记」 line.
+- **Production chat cards** (`sources[].hasAbnormality`) use `Number(has_abnormality) === 1`. Exact `1` is true, `0` is false, `null` is null, and any other number (including `2`) is **false**. The only input is the saved `has_abnormality` column. The model prompt on this branch does not include an 「异常标记」 line.
 - **Unmerged backend draft** (health-tracker-backend PR 31) changes the card and the prompt to the nonzero rule above and tells the model not to reclassify from overview text. It is not production.
-- **Unmerged iOS draft** (health-ios PR 48, in testing) draws the reference badge from `POST /query` `has_abnormality`, not from `sources[].hasAbnormality`.
+- **Current iOS** (`health-ios` main, including merged #48) draws the reference badge from saved `has_abnormality` on `POST /query` (`POST /api/skill/records/query`). It does not read `sources[].hasAbnormality` and does not infer the badge from snippet text. A record with no saved flag shows no 异常 badge.
 
 When a raw `has_abnormality` is available from `POST /api/skill/records/query` or session detail, apply the nonzero rule even if the production card boolean disagrees. When only the card boolean exists, trust true/false/null and do not upgrade false or null because the snippet contains 异常.
 
@@ -126,7 +126,7 @@ First save of an upload session, while status is `awaiting_confirm` (or `error` 
 
 **Production:** synchronous HTTP 200 `{"success":true,"message":"N report(s) saved","recordIds":[...]}`. This handler does **not** check for `completed`. Calling it again can insert another copy. Do not do that.
 
-**Unmerged** (backend PR 27, iOS PR 48 testing builds): HTTP 202 `{"accepted":true,"status":"saving","session_id"}`. Already saving returns 202 `accepted:false`. Completed or cancelled returns HTTP 400 `{"error":"Session already completed"}`. Not ready returns 409. Empty indicator reports return 422. Poll status until `completed` or `error`. Do not call confirm again after 202 or after 400.
+**Unmerged backend** (health-tracker-backend PR 27): HTTP 202 `{"accepted":true,"status":"saving","session_id"}`. Already saving returns 202 `accepted:false`. Completed or cancelled returns HTTP 400 `{"error":"Session already completed"}`. Not ready returns 409. Empty indicator reports return 422. Poll status until `completed` or `error`. Do not call confirm again after 202 or after 400. Current iOS already accepts this 202 path. The production API response is still the HTTP 200 inline save above.
 
 `save-reports.sh` reads status first:
 
@@ -160,7 +160,7 @@ On both confirm (non-lab insert) and `POST /records`, omitting `has_abnormality`
 
 - `GET /api/skill/indicators?category=&memberId=`
 - `GET /api/skill/indicators/categories` → `{categories:[{category, label, count}]}`
-- `GET /api/skill/indicators/trend?id=<uuid>&memberId=` → points use boolean `is_abnormal` (`=== 1`)
+- `GET /api/skill/indicators/trend?id=<uuid>&memberId=` → points use boolean `is_abnormal` (`=== 1`) and each point's own `reference_range`. The indicator list has no normal-range field. On one trend, iOS merges same-unit ranges into the widest interval any hospital treated as normal, and leaves the point color on `is_abnormal`. See `caremax-indicators`.
 - `GET /api/skill/indicators/trends-by-category?category=&memberId=`
 - Quick log: `GET /api/indicators?category=common_indicator`, then `POST /api/indicators/quick-log` with `preset_key` (the `canonical_name`) or `canonical_id`, plus `value`, optional `unit`, `test_date`, `member_id` (snake_case). `GET /api/indicators/system-presets` still returns `{deprecated:true, presets}` and is not the preferred list.
 

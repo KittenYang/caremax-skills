@@ -41,8 +41,11 @@ Agent:
   → bash ../caremax-auth/scripts/api-call.sh GET /api/skill/indicators
   → Finds creatinine id
   → bash ../caremax-auth/scripts/api-call.sh GET "/api/skill/indicators/trend?id=<uuid>"
-  → Lists dates, values, units, and reference ranges
+  → Lists dates, values, units, and each row's reference range
+  → The dictionary has no normal-range column
+  → Same-unit ranges on one trend merge to the widest hospital interval
   → Row is_abnormal is true only when the stored flag is 1
+  → The merged band does not recolor the row
 ```
 
 ### Example 3: Upload, queue OCR, confirm once

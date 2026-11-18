@@ -63,7 +63,7 @@ $STATUS <session_id>
 
 `reportType` `lab` is an 指标报告. `imaging`, `genetic`, `pathology`, and `other` are 文字报告.
 
-Indicator reports: table of name, value, unit, reference range, and abnormal when `is_abnormal` is 1. Do not confirm a lab report that has zero indicators.
+Indicator reports: table of name, value, unit, that row's reference range, and abnormal when `is_abnormal` is 1. The range is the row's own `reference_range`. Do not confirm a lab report that has zero indicators.
 
 Text reports: show summary and sections. The abnormality mark is manual. Ask the user. Nonzero means abnormal, 0 means not, and if they do not choose, leave it unset. Do not set the mark because the summary contains 异常. Omitting the field is stored as 0 (not abnormal), so say that explicitly when the user skips the switch.
 
