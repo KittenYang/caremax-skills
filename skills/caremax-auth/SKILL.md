@@ -85,7 +85,7 @@ bash ./scripts/chat-stream.sh --question "我的肾功能怎么样" --member <me
 bash ./scripts/chat-stream.sh --question "这份呢" --conversation <id> --record <record_id>
 ```
 
-Sends `Accept: text/event-stream` to `POST /api/skill/chat`. Prints `{"event","data"}` per SSE frame (`status`, `sources`, `thinking`, `delta`, `citations`, `done`, `error`). Read [the abnormality rule](./references/http-contracts.md#cited-report-abnormality) before calling a cited report abnormal. The non-stream JSON response has no `sources`.
+Sends `Accept: text/event-stream` to `POST /api/skill/chat`. Prints `{"event","data"}` per SSE frame (`status`, `sources`, `thinking`, `delta`, `card`, `citations`, `done`, `error`). `card` data is the trend-card object. Read [the abnormality rule](./references/http-contracts.md#cited-report-abnormality) before calling a cited report abnormal, and [trend cards](./references/http-contracts.md#trend-cards) before drawing a chart. The non-stream JSON response has no `sources`. It includes `cards` only when that turn has trend cards.
 
 ### save-reports.sh
 

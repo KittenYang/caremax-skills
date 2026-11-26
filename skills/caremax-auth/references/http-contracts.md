@@ -33,7 +33,7 @@ JSON body (camelCase):
 }
 ```
 
-SSE events, in order:
+SSE events. `card` arrives between `delta` chunks. The other events usually arrive in this order:
 
 | event | data |
 |---|---|
@@ -41,17 +41,39 @@ SSE events, in order:
 | `sources` | `{sources:[SourceCard]}` before tokens. One card per record id. |
 | `thinking` | `{delta}` only when `deepThinking` is true |
 | `delta` | `{delta}` answer text |
+| `card` | The trend-card object itself, not wrapped. Interleaved with `delta` where the marker was written |
 | `citations` | `{citations:[{index, source, relevance, quote, recordId?}]}` |
 | `timing` | diagnostic; ignore if the shape changes |
-| `done` | `{requestId, conversationId, messageId, userMessageId}` |
+| `done` | `{requestId, conversationId, messageId, userMessageId}`. A turn may have no card |
 | `error` | `{error:"chat_failed"\|"answer_truncated", requestId}` |
 
 `SourceCard`: `{id, title, date, snippet, hasAbnormality, matchType, indicators[]}`. `matchType` is `pinned`, `semantic`, `text`, or `fallback`. Each indicator is `{id, name, value, unit, isAbnormal}`.
 
+### Trend cards
+
+Offer one when the answer compares a single indicator across dates. The in-app answer names the indicator with `<caremax-card>{"type":"trend","indicator_id":"<id>"}</caremax-card>`, or `name` when there is no id. Optional `member_id` must be the current member. Do not put `points`, numbers, or HTML in the marker. This skill pack does not own the Worker prompt in `chatAsk.ts`.
+
+The server removes the marker, hydrates points from that member's saved indicators and medical records (not only the report pinned on this turn), and emits `card`. No card is sent when the indicator is missing, the name is ambiguous, there are no usable points, or hydration fails. A marker with `points`, numeric values, HTML, or an unregistered type is removed and does not emit `card`. At most 3 cards per message, and 120 points per card.
+
+`data` is the card. Unused fields are omitted.
+
+| Field | Rule |
+|---|---|
+| `v` | `1` |
+| `type` | `trend` |
+| `indicator_id` | Same id as `GET /api/skill/indicators/trend?id=`. Omitted only when the series was never linked to a canonical indicator |
+| `points[].value` | One finite saved number (converted value when present, otherwise the original) |
+| `points[].value_text` | Non-numeric saved text, including `10-12` and `++`. Do not coerce `10-12` to `10` |
+| `points[].abnormal` | Saved `indicators.is_abnormal === 1`. Not recomputed from the reference range |
+| `reference` | Latest saved `reference_range` that parses to numeric bounds. Omitted when it does not |
+| `title` | `{name}趋势`. An English question uses `{name} trend` |
+
+Persisted on `chat_messages.cards_json`. Conversation reload, message search, legacy history, and the non-stream JSON body include `cards` when any exist, and omit the field when none do. The marker is not stored in `content`. iOS renders `type: trend` natively. See caremax-chat.
+
 Other chat routes:
 
 - `GET /api/skill/chat/conversations?page&limit`
-- `GET /api/skill/chat/conversations/:id` (messages may include `sources` and `citations`)
+- `GET /api/skill/chat/conversations/:id` (messages may include `sources`, `citations`, and `cards`)
 - `GET /api/skill/chat/messages/search?q=&page&limit&role&conversationId`
 - `GET /api/skill/chat/history?page&limit` legacy flat Q&A pairs
 - `GET /api/skill/chat/suggestions?recordId=`
@@ -170,9 +192,15 @@ There is no `/api/skill/records/search`. Natural language and structured filters
 
 `POST /api/skill/records/query` → `/api/query`.
 
-Body fields are camelCase: `searchText`, `dateRange`, `indicatorName`, `reportTitle`, `recordId`, `memberId`, `page`, `limit`. With no filter, the latest reports are returned. `searchText` returns `{type:"search", data, semanticHits, rag}`. `rag.answer` is a search summary, not the multi-turn 健康问答 transcript. Use chat for a conversation.
+Body fields are camelCase: `searchText`, `dateRange`, `indicatorName`, `reportTitle`, `recordId`, `memberId`, `page`, `limit`, plus `sort` and `q`. With no filter, the latest reports are returned. `searchText` returns `{type:"search", data, semanticHits, rag}`. `rag.answer` is a search summary, not the multi-turn 健康问答 transcript. Use chat for a conversation.
 
-`recordId` returns one record including `has_abnormality`, `report_type`, `summary`, `indicators`, and `sections` for non-lab types. Sections are omitted for `lab`.
+`sort` is `upload_date`, `test_date`, or `updated_at`, always newer first, with `id` ascending on a tie. Omitted, blank, or unknown `sort` leaves the unfiltered list, `dateRange`, and `q` on `test_date` descending. A legal `sort` replaces that order on those three paths. `dateRange` still filters on `test_date`. `indicatorName`, `reportTitle`, `searchText`, and `recordId` ignore `sort`.
+
+Each `data[]` item includes `updated_at` (ISO-8601), including a `recordId` read. iOS maps it to `updatedAt`. iOS adds 「按更新日期」 on the report list. Web keeps the default 「按检查日期」 and adds the updated-date option.
+
+`recordId` returns one record including `has_abnormality`, `report_type`, `summary`, `indicators`, `updated_at`, and `sections` for non-lab types. Sections are omitted for `lab`.
+
+On a report card, hide 「异常 0」 when the abnormal indicator count is 0, and still show 「异常 N」 when the count is greater than 0. Record detail (top-right pencil) and the indicator trend's 检查记录 edit action both open 编辑检测报告; the write is still `POST /api/records`. When confirm or that editor has exactly one report, 报告总览 is that report's indicator catalog (the subtitle is the report name, not 「共 1 份」). Two or more reports stay one row per report. A selected count chip stays at full opacity; the other count chips use opacity 0.2. On 「全部」, every count chip stays fully opaque. See caremax-records.
 
 ## Members
 
