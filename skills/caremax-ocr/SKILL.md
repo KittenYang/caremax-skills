@@ -1,6 +1,6 @@
 ---
 name: caremax-ocr
-description: "Upload medical reports and run CareMax OCR. After upload, queue OCR in the same turn unless the user asked for upload only. Covers unfinished tasks versus paginated history, review, async confirm (200 or 202 saving), and updates of already saved reports via POST /records. Trigger terms: upload report, scan report, OCR, 继续上传, 未完成, 上传待处理, 全部任务, confirm, 文字报告, 指标报告."
+description: "Upload medical reports and run CareMax OCR. After upload, queue OCR in the same turn unless the user asked for upload only. Covers unfinished tasks versus paginated history, review, async confirm (200 or 202 saving), the confirm overview, and updates of already saved reports via POST /records. Trigger terms: upload report, scan report, OCR, 继续上传, 未完成, 上传待处理, 全部任务, confirm, 文字报告, 指标报告, 报告总览, 指标目录, 编辑检测报告."
 license: MIT
 ---
 
@@ -66,6 +66,8 @@ $STATUS <session_id>
 Indicator reports: table of name, value, unit, that row's reference range, and abnormal when `is_abnormal` is 1. The range is the row's own `reference_range`. Do not confirm a lab report that has zero indicators.
 
 Text reports: show summary and sections. The abnormality mark is manual. Ask the user. Nonzero means abnormal, 0 means not, and if they do not choose, leave it unset. Do not set the mark because the summary contains 异常. Omitting the field is stored as 0 (not abnormal), so say that explicitly when the user skips the switch.
+
+报告总览 on confirm follows how many reports are still in the session. Exactly one report opens that report's indicator catalog: the subtitle is the report name, not 「共 1 份」, and the rows are indicators that have both a name and a value. Two or more reports stay one row per report, and a row jumps to that report. While exactly one count chip is the active filter, that chip stays at full opacity and the other count chips use opacity 0.2. On 「全部」, every count chip stays fully opaque. 「全部」 clears the filter and is not itself a count chip. The same overview rules are in caremax-records.
 
 ## 4. Save
 

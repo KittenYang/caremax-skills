@@ -1,6 +1,6 @@
 ---
 name: caremax-indicators
-description: "Query CareMax health indicators and quickly log a daily vital. Use for indicator lists, categories, trends, each lab row's normal range, the same-unit hospital union band, 「我的指标」, and 快捷记一笔. Trigger terms: health indicator, lab result, trend, normal range, reference range, quick log, 指标, 趋势, 正常范围, 参考范围, 各医院标准不同, 我的指标, 快捷记一笔, 记一笔, 身高, 体重, 血压."
+description: "Query CareMax health indicators and quickly log a daily vital. Use for indicator lists, categories, trends, each lab row's normal range, the same-unit hospital union band, 「我的指标」, the trend record list, and 快捷记一笔. Trigger terms: health indicator, lab result, trend, normal range, reference range, quick log, 指标, 趋势, 正常范围, 参考范围, 各医院标准不同, 我的指标, 检查记录, 编辑检测报告, 快捷记一笔, 记一笔, 身高, 体重, 血压."
 license: MIT
 ---
 
@@ -41,6 +41,8 @@ Categories are `{category, label, count}`. Pass the stored `category` key back a
 Trend points are chronological: `date`, `value`, `unit`, `reference_range`, `is_abnormal`. Here `is_abnormal` is a boolean and is true only when the stored row is `1`. That is the indicator row, not the report-level `has_abnormality` flag used by text reports and chat sources.
 
 Show every value with its unit and that row's reference range.
+
+The 检查记录 list on a single-indicator trend has an edit action next to 查看. That action opens 编辑检测报告 for the saved report on that row. Saving is `save-reports.sh --update` (`POST /api/records`). See caremax-records. Chat trend cards use this same indicator id and the saved `is_abnormal` flag. See caremax-chat.
 
 ## Normal range
 

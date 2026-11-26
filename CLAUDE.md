@@ -44,6 +44,11 @@ Credentials are stored at `~/.caremax/credentials.json`:
 - Indicator categories: `GET /api/skill/indicators/categories`. Trend needs the indicator UUID from `GET /api/skill/indicators`. Member scope on those routes is `memberId`.
 - Natural-language record search is `POST /api/skill/records/query` with `searchText`. There is no `/api/skill/records/search`.
 - Health Q&A (健康问答) is `caremax-chat` / `chat-stream.sh` (`POST /api/skill/chat`, `Accept: text/event-stream`). Analysis uses the user's saved abnormality marks. `sources[].hasAbnormality` comes only from saved `has_abnormality`. Nonzero is abnormal, 0/false is not, null is unset. Do not infer from summary text or from the word 异常. Current iOS paints the reference badge from the records-query flag. Indicator rows use `is_abnormal === 1` on their own.
+- A comparison of one indicator across dates can include a trend card. The answer marks `<caremax-card>{"type":"trend","indicator_id":"..."}</caremax-card>` (or `name` when there is no id). SSE event `card` has that card as `data`, with no wrapper. The server fills points from the member's saved indicators and medical records, not only the report pinned this turn. Unused fields are omitted. Ranges such as `10-12` and results such as `++` use `value_text`. `abnormal` is saved `is_abnormal`. At most 3 cards and 120 points. Persistence is `chat_messages.cards_json`. iOS renders the card natively. Details are in `caremax-chat`.
+- Report lists may send `sort` of `upload_date`, `test_date`, or `updated_at` (newer first) on `POST /api/skill/records/query`. Omitted `sort` stays `test_date` descending. iOS adds 「按更新日期」. Web keeps default 「按检查日期」 and adds the updated-date option. Rows include `updated_at`.
+- A report card hides 「异常 0」 when the abnormal indicator count is 0 and still shows 「异常 N」 when the count is greater than 0.
+- Record detail (top-right pencil) and the indicator trend's 检查记录 edit action both open 编辑检测报告. Saving a report that already has an id stays `save-reports.sh --update`.
+- When confirm or that editor has exactly one report, 报告总览 is that report's indicator catalog. The subtitle is the report name, not 「共 1 份」. A selected count chip stays at full opacity; the other count chips use opacity 0.2.
 - A normal range is each lab result's `reference_range`. The indicator dictionary and 「我的指标」 have no normal-range column. On a single-indicator trend, same-unit ranges merge to the widest interval any hospital treated as normal (1.1–2.3 and 1.9–2.5 become 1.1～2.5). Leave mismatched units out of that band, including mg/dL on a mmol/L axis. The band does not recolor points. Meaningfully different hospital intervals show 「各医院标准不同」. Details are in `caremax-indicators`.
 - App languages are Simplified Chinese, Traditional Chinese (zh-Hant), English, Japanese, and French. CareMax stays untranslated. Built-in category and quick-log names follow the language; custom names stay as saved. The setting is 我的 → 通用 → 语言. 「我的指标」 has no top-right gear. Family chips put the avatar to the left of the name. The selected member card is a solid opaque fill.
 - Upload is `upload.sh` (multipart `files`, optional `member_id`). OCR is `POST /sessions/:id/ocr`, which returns HTTP 202 on the current API. Poll `session-status.sh`. Do not require an SSE progress stream.
@@ -55,7 +60,7 @@ Credentials are stored at `~/.caremax/credentials.json`:
 ## Preferred Workflow
 
 1. "show my XXX indicator": list indicators → match → `trend?id=`
-2. "ask about my reports": `chat-stream.sh`, then apply the saved abnormality flag to `sources`
+2. "ask about my reports": `chat-stream.sh`, then apply the saved abnormality flag to `sources`. Relay a `card` event as a trend card
 3. "upload this report": `upload.sh` → `ocr-stream.sh` → poll status → review → `save-reports.sh --session` after the user agrees
 4. "what's still uploading" vs "all upload tasks": `sessions-list.sh unfinished` vs `sessions-list.sh history`
 5. "change this saved report": `save-reports.sh --update`, not session confirm

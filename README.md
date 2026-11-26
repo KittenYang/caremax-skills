@@ -54,10 +54,10 @@ done
 | Skill | Required | Description |
 |-------|----------|-------------|
 | **caremax-auth** | **YES** | OAuth device flow and shared scripts (API, upload, OCR kick, sessions, chat SSE, confirm-or-update, quick log) |
-| **caremax-chat** | no | 健康问答: start or continue a chat, SSE events, reference cards, saved `has_abnormality` |
-| **caremax-ocr** | no | Upload session, queued OCR, unfinished tasks vs paginated history, review, confirm or update |
+| **caremax-chat** | no | 健康问答: start or continue a chat, SSE events, reference cards, trend cards, saved `has_abnormality` |
+| **caremax-ocr** | no | Upload session, queued OCR, unfinished tasks vs paginated history, review, confirm overview, confirm or update |
 | **caremax-indicators** | no | Indicator lists, categories, per-result reference ranges, same-unit trend bands, and quick log (「快捷记一笔」) |
-| **caremax-records** | no | Saved-report query and search, text vs indicator reports, update via `POST /records` |
+| **caremax-records** | no | Saved-report query, list sort, report cards, 报告总览, and update via `POST /records` |
 | **caremax-members** | no | Family member list, create, update, and delete; family chips and in-app language |
 
 Field-level HTTP contracts, including what is production and what is only on an unmerged draft, are in `skills/caremax-auth/references/http-contracts.md`.
